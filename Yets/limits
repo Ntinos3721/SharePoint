@@ -1,0 +1,190 @@
+using Microsoft.SharePoint;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.Serialization;
+using System.ServiceModel;
+using System.ServiceModel.Web;
+using System.Text;
+
+namespace PNPLimits
+{
+    
+
+    // NOTE: You can use the "Rename" command on the "Refactor" menu to change the class name "Service1" in code, svc and config file together.
+    // NOTE: In order to launch WCF Test Client for testing this service, please select Service1.svc or Service1.svc.cs at the Solution Explorer and start debugging.
+    public class Service1 : IService1
+    {
+
+        /*
+            Create a Data Connection Library 
+            https://msdn.microsoft.com/en-us/library/office/ms772101(v=office.14).aspx
+         
+            http://stackoverflow.com/questions/20710798/microsoft-sharepoint-is-not-supported-in-32-bit-process-please-verify-that-you
+            Sometimes, if "Prefer 32-bit" is greyed out, and your Platform Target is already "Any CPU", the problem is that IIS Express is not 32 bit.
+            The solution is to change the solution's web server to Local IIS.
+        */
+
+        public string sharePointSite = System.Web.Configuration.WebConfigurationManager.AppSettings["SiteURL"].ToString();
+
+        public double GetLimit(string CDI, string AFM, string period)
+        {
+            double res = 0;
+            
+            SPSecurity.RunWithElevatedPrivileges(delegate()
+            {
+                using (SPSite oSite = new SPSite(sharePointSite))
+                {
+                    using (SPWeb oWeb = oSite.OpenWeb())
+                    {
+                        SPList list = oWeb.GetList(AddPrefix(oWeb) + "/Lists/timologia");
+
+                        SPQuery query = new SPQuery();
+
+                        if (period == null)
+                        { period = "d"; }
+
+                        if (period.ToLower() == "d")
+                        { query.ViewXml = TodayQuery(CDI, AFM); }
+                        if (period.ToLower() == "m")
+                        { query.ViewXml = MonthlyQuery(CDI, AFM); }
+                        
+                        SPListItemCollection items = list.GetItems(query);
+
+                        for(int i=0; i<items.Count; i++)
+                        {
+                            if (items[i][FieldNames.ISOTIMO_SE_EURO] != null)
+                            { res += double.Parse(items[i][FieldNames.ISOTIMO_SE_EURO].ToString()); }
+                        }
+                    }
+                }
+            });
+
+            return res;
+        }
+        
+        private string MonthlyQuery(string CDI, string AFM)
+        {
+            DateTime firstDay = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+
+            string start = Microsoft.SharePoint.Utilities.SPUtility.CreateISO8601DateTimeFromSystemDateTime(firstDay);
+            string end = Microsoft.SharePoint.Utilities.SPUtility.CreateISO8601DateTimeFromSystemDateTime(firstDay.AddMonths(1));
+
+            string field = FieldNames.AFM;
+            string value = AFM;
+
+            if (AFM == "999999999")
+            {
+                field = FieldNames.CDI;
+                value = CDI;
+            }
+  
+            return 
+                "<View Scope=\"RecursiveAll\">" +
+                    "<Query>" +
+                        "<Where>" +
+                            "<And>" +
+                            "<And>" +
+                            "<And>" +
+                                "<Eq><FieldRef Name='" + field + "' /><Value Type='Text'>" + value + "</Value></Eq>" +
+                                "<Or>" + 
+                                    "<Eq><FieldRef Name='" + FieldNames.STATUS_DPXP + "' /><Value Type='Text'>ΕΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ</Value></Eq>" +
+                                "<Or>" +
+                                    "<Eq><FieldRef Name='" + FieldNames.STATUS_DPXP + "' /><Value Type='Text'>ΕΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ ΥΠΟ ΟΡΟΥΣ</Value></Eq>" +
+                                    "<Eq><FieldRef Name='" + FieldNames.STATUS_DPXP + "' /><Value Type='Text'>ΥΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ</Value></Eq>" +
+                                "</Or>" +
+                                "</Or>" +
+                            "</And>" +
+                            "<Or>" + 
+                                "<And>" +
+                                    "<Eq><FieldRef Name='" + FieldNames.STATUS_MD + "' /><Value Type='Text'>ΕΛΕΓΜΕΝΟ ΠΡΟΣ ΥΕΤΣ</Value></Eq>" +
+                                    "<And>" +
+                                        "<Geq><FieldRef Name='" + FieldNames.MONTH_EGKRISI_YETS + "' /><Value Type='DateTime'>" + start + "</Value></Geq>" +
+                                        "<Leq><FieldRef Name='" + FieldNames.MONTH_EGKRISI_YETS + "' /><Value Type='DateTime'>" + end + "</Value></Leq>" +
+                                    "</And>" +
+                                "</And>" +
+                                "<And>" +
+                                    "<Eq><FieldRef Name='" + FieldNames.STATUS_MD + "' /><Value Type='Text'>ΕΛΕΓΜΕΝΟ ΠΡΟΣ ΕΕΤΣ</Value></Eq>" +
+                                    "<And>" +
+                                        "<Geq><FieldRef Name='" + FieldNames.MONTH_APOFASI_EETS + "' /><Value Type='DateTime'>" + start + "</Value></Geq>" +
+                                        "<Leq><FieldRef Name='" + FieldNames.MONTH_APOFASI_EETS + "' /><Value Type='DateTime'>" + end + "</Value></Leq>" +
+                                    "</And>" +
+                                "</And>" +
+                            "</Or>" +
+                            "</And>" +
+                                "<Or>" + 
+                                    "<Eq><FieldRef Name='" + FieldNames.STATUS_YPOVOLIS + "' /><Value Type='Text'>ΠΡΟΣ ΑΞΙΟΛΟΓΗΣΗ</Value></Eq>" +
+                                    "<Or>" +
+                                    "<Eq><FieldRef Name='" + FieldNames.STATUS_YPOVOLIS + "' /><Value Type='Text'>ΠΡΟΣ ΕΚΤΕΛΕΣΗ ΣΕ ΜΟΝΑΔΑ</Value></Eq>" +
+                                    "<Or>" +
+                                    "<Eq><FieldRef Name='" + FieldNames.STATUS_YPOVOLIS + "' /><Value Type='Text'>ΕΚΚΑΘΑΡΙΣΘΕΝ ΑΠΟ ΜΟΝΑΔΑ</Value></Eq>" +
+                                    "<Eq><FieldRef Name='" + FieldNames.STATUS_YPOVOLIS + "' /><Value Type='Text'>ΕΚΚΑΘΑΡΙΣΘΕΝ ΑΠΟ ΚΑΤΑΣΤΗΜΑ</Value></Eq>" +
+                                    "</Or>" +
+                                    "</Or>" +
+                                "</Or>" +
+                            "</And>" +
+                        "</Where>" +
+                    "</Query>" +
+                "</View>";
+        }
+
+        private string TodayQuery(string CDI, string AFM)
+        {
+            string field = FieldNames.AFM;
+            string value = AFM;
+
+            if(AFM == "999999999")
+            {
+                field = FieldNames.CDI;
+                value = CDI;
+            }
+
+            return 
+                "<View Scope=\"RecursiveAll\">" +
+                    "<Query>" +
+                        "<Where>" +
+                            "<And>" +
+                            "<And>" +
+                            "<And>" +
+                            "<And>" +
+                                "<Eq><FieldRef Name='" + field + "' /><Value Type='Text'>" + value + "</Value></Eq>" +
+                                "<Or>" + 
+                                    "<IsNull><FieldRef Name='" + FieldNames.STATUS_DPXP + "' /></IsNull>" +
+                                    "<Or>" + 
+                                        "<Eq><FieldRef Name='" + FieldNames.STATUS_DPXP + "' /><Value Type='Text'>ΥΕΤΣ ΥΠΟ ΕΞΕΤΑΣΗ</Value></Eq>" +
+                                        "<Eq><FieldRef Name='" + FieldNames.STATUS_DPXP + "' /><Value Type='Text'>ΥΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ</Value></Eq>" +
+                                    "</Or>" +
+                                "</Or>" +
+                            "</And>" +
+                                "<Eq><FieldRef Name='" + FieldNames.DAILY_DATE_FIELD + "' /><Value IncludeTimeValue='FALSE' Type='DateTime'>" + DateTime.Now.ToString("yyyy-MM-dd") + "</Value></Eq>" +
+                            "</And>" +
+                                "<Eq><FieldRef Name='" + FieldNames.STATUS_MD + "' /><Value Type='Text'>ΕΛΕΓΜΕΝΟ ΠΡΟΣ ΥΕΤΣ</Value></Eq>" +
+                            "</And>" +
+                                "<Or>" +
+                                    "<Eq><FieldRef Name='" + FieldNames.STATUS_YPOVOLIS + "' /><Value Type='Text'>ΠΡΟΣ ΑΞΙΟΛΟΓΗΣΗ</Value></Eq>" +
+                                    "<Or>" +
+                                    "<Eq><FieldRef Name='" + FieldNames.STATUS_YPOVOLIS + "' /><Value Type='Text'>ΠΡΟΣ ΕΚΤΕΛΕΣΗ ΣΕ ΜΟΝΑΔΑ</Value></Eq>" +
+                                    "<Or>" +
+                                    "<Eq><FieldRef Name='" + FieldNames.STATUS_YPOVOLIS + "' /><Value Type='Text'>ΕΚΚΑΘΑΡΙΣΘΕΝ ΑΠΟ ΜΟΝΑΔΑ</Value></Eq>" +
+                                    "<Eq><FieldRef Name='" + FieldNames.STATUS_YPOVOLIS + "' /><Value Type='Text'>ΕΚΚΑΘΑΡΙΣΘΕΝ ΑΠΟ ΚΑΤΑΣΤΗΜΑ</Value></Eq>" +
+                                    "</Or>" +
+                                    "</Or>" +
+                                "</Or>" +
+                            "</And>" +
+                        "</Where>" +
+                    "</Query>" +
+                "</View>";
+        }
+       
+        private string AddPrefix(SPWeb web)
+        {
+            string siteprefix = ""; //Dev
+
+            if (!web.Url.ToLower().Contains("dev"))
+            { siteprefix = "/TODO/TODO"; } //Prod
+
+            return siteprefix;
+        }
+
+    }
+}
