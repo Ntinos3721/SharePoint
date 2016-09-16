@@ -1,0 +1,108 @@
+using Microsoft.SharePoint;
+using System;
+using System.Collections.Generic;
+using System.Data.SqlClient;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace CompareSPSwithReportDB
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            var spsData = new Dictionary<int, decimal>();
+
+            Console.WriteLine("GettingData from sps");
+
+            using (SPSite site = new SPSite("http://TODO:81/"))
+            {
+                using (SPWeb web = site.OpenWeb()) //returns the site associated with URL 
+                {
+                    SPList list = web.Lists["AITHMATA"];
+                    SPListItemCollection items = list.GetItems();
+
+                    foreach (SPListItem item in items)
+                    {
+                        if (NomikaItem(item))
+                            spsData.Add(item.ID, GetDecimalValue(item, "Ισότιμο σε ΕΥΡΩ"));
+                        else
+                            spsData.Add(item.ID, GetDecimalValue(item, "Ισότιμο σε EUR (ΛΣ)"));
+                    }
+                }
+            }
+
+            Console.WriteLine("GettingData from report db");
+
+            var dbData = new Dictionary<int, decimal>();
+
+            using (SqlConnection connection = new SqlConnection("Data Source=TODO;Initial Catalog=TODO;Persist Security Info=True;User ID=TODO;Password=TODO"))
+            {
+                string cmdText = "SELECT SPID, IsotimoEuro FROM xxxx";
+
+                connection.Open();
+                using (SqlCommand command = new SqlCommand(cmdText, connection))
+                {
+                    command.CommandType = System.Data.CommandType.Text;
+                    command.CommandTimeout = 1500;
+                   
+                    using (SqlDataReader reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            int spid = reader.GetInt32(0);
+                            decimal isotimo = reader.IsDBNull(1) ? 0m : reader.GetDecimal(1);
+
+                            dbData.Add(spid, isotimo);
+                        }
+                        reader.Close();
+                    }
+                }
+            }
+
+            Console.WriteLine("Compare values ...");
+
+            foreach (var pair in spsData)
+            {
+                decimal dbValue;
+
+                if (dbData.TryGetValue(pair.Key, out dbValue))
+                {
+                    if (pair.Value != dbValue)
+                    {
+                        string notEqualMessage = string.Format("sps value {0}, db value {1}, for key {2}", pair.Value, dbValue, pair.Key);
+                        Console.WriteLine(notEqualMessage);
+
+                        using (StreamWriter sw = new StreamWriter("C:\\Temp\\DiffValues.txt", true, Encoding.GetEncoding(1253)))
+                        {
+                            sw.WriteLine(notEqualMessage);
+                        }
+                    }
+                }
+            }
+
+            spsData.Clear();
+            dbData.Clear();
+
+            Console.WriteLine("Process finished...");
+
+            Console.ReadLine();
+        }
+
+        static decimal GetDecimalValue(SPListItem item, string fieldName)
+        {
+            return item[fieldName] == null ? 0m : decimal.Parse(item[fieldName].ToString());
+        }
+
+        static bool NomikaItem(SPListItem item)
+        {
+            //FYI: Αίτημα Συναλλαγής (ΝΟΜΙΚΑ), Αίτημα Λοιπών Συναλλαγών (ΦΥΣΙΚΑ)
+            if (item["Title"] == null)
+                throw new ApplicationException("Title is missing, unable to determine Fysika or Nomika");
+
+            return item["Title"].ToString().Equals("Αίτημα Συναλλαγής", StringComparison.CurrentCultureIgnoreCase);
+        }
+    }
+}
