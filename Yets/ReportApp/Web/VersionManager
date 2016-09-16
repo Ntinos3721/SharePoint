@@ -1,0 +1,28 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Web;
+
+namespace ReportApplication.Managers
+{
+    public static class VersionManager
+    {
+        /// <summary>
+        /// Appends a version number to thje query string of a resource Url.
+        /// https://frankcode.net/2013/10/13/automating-js-and-css-versioning/
+        /// </summary>
+        /// <param name="resourceUrl">The resource Url.</param>
+        /// <returns>The url with the query string of version added.</returns>
+        public static string AppendVersion(string resourceUrl)
+        {
+            if (string.IsNullOrEmpty(AssemblyVersion))
+            {
+                AssemblyVersion = Assembly.GetExecutingAssembly().GetName().Version.Revision.ToString();
+            }
+            return string.Concat(resourceUrl, "?v=", AssemblyVersion);
+        }
+
+        public static string AssemblyVersion { get; set; }
+    }
+}
