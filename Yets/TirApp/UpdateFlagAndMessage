@@ -1,0 +1,53 @@
+private static void UpdateTeiresiasFlagAndMessage(SPQuery query, string sent2TeiresiasField, string teiresiasMessageField, string lastUpdateField,
+            string flag, string message, DateTime? lastModified)
+        {
+            var methodBuilder = new StringBuilder();
+            string batchFormat = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+                            "<ows:Batch OnError=\"Return\">{0}</ows:Batch>";
+
+            string methodFormat = "<Method ID=\"{0}\">" +
+                                     "<SetList>{1}</SetList>" +
+                                     "<SetVar Name=\"Cmd\">Save</SetVar>" +
+                                     "<SetVar Name=\"ID\">{2}</SetVar>" +
+                                     "<SetVar Name=\"urn:schemas-microsoft-com:office:office#" + sent2TeiresiasField + "\">{3}</SetVar>" +
+                                     "<SetVar Name=\"urn:schemas-microsoft-com:office:office#" + teiresiasMessageField + "\">{4}</SetVar>" +
+                                     "<SetVar Name=\"urn:schemas-microsoft-com:office:office#" + lastUpdateField + "\">{5}</SetVar>" +
+                                   "</Method>";
+
+            try
+            {
+                SPSecurity.RunWithElevatedPrivileges(delegate()
+                {
+                    using (SPSite oSite = new SPSite("http://TODO:81"))
+                    {
+                        using (SPWeb oWeb = oSite.OpenWeb())
+                        {
+                            SPList oList = oWeb.Lists["AITHMATA"];
+                            string listGuid = oList.ID.ToString();
+
+                            SPListItemCollection items = oList.GetItems(query);
+                            Console.WriteLine("Updating {0}, Items to update: {1}", sent2TeiresiasField, items.Count);
+                            //WriteToLog(swLog, string.Format("Updating {0}, Items to update: {1}", sent2Teiresias, items.Count));
+
+                            // Build the CAML update commands.
+                            for (int i = 0; i < items.Count; i++)
+                            {
+                                int itemID = items[i].ID;
+                                methodBuilder.AppendFormat(methodFormat, itemID, listGuid, itemID, flag, message, lastModified);
+                            }
+
+                            string batch = string.Format(batchFormat, methodBuilder.ToString());
+
+                            // Process the batch of commands.
+                            oWeb.AllowUnsafeUpdates = true;
+                            string batchReturn = oWeb.ProcessBatchData(batch);
+                            oWeb.AllowUnsafeUpdates = false;
+                        }
+                    }
+                });
+            }
+            catch
+            {
+                throw;
+            }
+        }
