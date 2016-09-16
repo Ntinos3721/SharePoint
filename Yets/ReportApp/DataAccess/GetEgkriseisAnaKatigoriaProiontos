@@ -1,0 +1,109 @@
+public IQueryable<EgkriseisAnaKatigoriaProiontosDto> GetEgkriseisAnaKatigoriaProiontos(DateTime dateFrom, DateTime dateTo)
+        {
+            #region SQL query
+            //            string sqlQuery = @"select 
+            //                                Aitimata.KatigoriaProiontos
+            //                                ,sum(0) as yets_aeis
+            //                                ,sum(yets.IsotimoEuro) as yets_wf
+            //                                ,sum(eets.IsotimoEuro) as eets
+            //                                from Aitimata
+            //                                  left join (select id, KatigoriaProiontos, IsotimoEuro from aitimata where statusDPXP = N'ΥΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ' and  IsotimoEuro is not null)  as yets 
+            //                                on yets.ID = Aitimata.ID
+            //
+            //                                  left  join (select id, KatigoriaProiontos, IsotimoEuro from aitimata where statusDPXP in (N'ΕΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ',N'ΕΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ ΥΠΟ ΟΡΟΥΣ') and IsotimoEuro is not null)  as eets 
+            //                                 on eets.ID = Aitimata.ID
+            //
+            //                                where 
+            //                                (StatusYpovolis != N'ΑΚΥΡΩΜΕΝΟ'    and StatusYpovolis != N'ΕΙΣΑΓΩΓΗ'  )
+            //                                and statusMD != N'ΑΚΥΡΩΜΕΝΟ'  
+            //                                --and (statusDPXP= N'ΥΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ' or statusDPXP= N'ΕΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ' or statusDPXP= N'ΕΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ ΥΠΟ ΟΡΟΥΣ')
+            //                                and statusDPXP IN (N'ΥΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ',N'ΕΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ',N'ΕΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ ΥΠΟ ΟΡΟΥΣ')
+            //                                and aitimata.IsotimoEuro is not null
+            //
+            //                                group by Aitimata.KatigoriaProiontos;";
+            #endregion
+
+            var types = new int[] { (int)AitimaType.NOMIKA, (int)AitimaType.FYSIKA, (int)AitimaType.FYSIKA_ME_EIDOS_ENTOLEA_NOMIKO };
+            string[] dpxpStatuses = new string[] { StatusDPXP.YETS_EGEKRIMENO, StatusDPXP.EETS_EGEKRIMENO, StatusDPXP.EETS_EGEKRIMENO_YPO_OROUS };
+            string[] eetsStatuses = new string[] { StatusDPXP.EETS_EGEKRIMENO, StatusDPXP.EETS_EGEKRIMENO_YPO_OROUS };
+
+            DateTime start = dateFrom.StartOfDay();
+            DateTime end = dateTo.EndOfDay();
+
+            /*
+            IQueryable<Aitimata> baseQuery = this.Aitimatas.AsNoTracking().Where(x => x.Code != null && x.Code != ""
+                                                    && x.KatigoriaProiontos != null && x.KatigoriaProiontos != ""
+                                                    && types.Contains(x.AitimaType.Value)
+                                                    && dpxpStatuses.Contains(x.statusDPXP)); 
+             
+            var query = from item in baseQuery
+                        where
+                        (
+                            item.statusDPXP == StatusDPXP.YETS_EGEKRIMENO ?
+                                                item.HmerominiaEgkrisisYETS >= start && item.HmerominiaEgkrisisYETS <= end : false
+                            || item.statusDPXP == StatusDPXP.EETS_EGEKRIMENO || item.statusDPXP == StatusDPXP.EETS_EGEKRIMENO_YPO_OROUS ?
+                                                item.HmerominiaApofasisEETS >= start && item.HmerominiaApofasisEETS <= end : false
+                        )
+                        select new EgkriseisAnaKatigoriaProiontosDto
+                        {
+                            KatigoriaProiontos = item.KatigoriaProiontos,
+                            IsotimoEuro = item.IsotimoEuro,
+                            StatusDPXP = item.statusDPXP,
+                            HmerominiaEgkrisisYETS = System.Data.Entity.DbFunctions.TruncateTime(item.HmerominiaEgkrisisYETS),
+                            HmerominiaApofasisEETS = System.Data.Entity.DbFunctions.TruncateTime(item.HmerominiaApofasisEETS),
+                            AitimaType = item.AitimaType
+                        };
+            */
+
+            var yetsQuery = from yetsItem in Aitimatas.AsNoTracking()
+                            where yetsItem.statusDPXP == StatusDPXP.YETS_EGEKRIMENO
+                            && yetsItem.HmerominiaEgkrisisYETS >= start && yetsItem.HmerominiaEgkrisisYETS <= end
+                            select new
+                            {
+                                ID = yetsItem.ID,
+                                KatigoriaProiontos = yetsItem.KatigoriaProiontos,
+                                IsotimoEuro = yetsItem.IsotimoEuro
+                            };
+
+            var eetsQuery = from eetsItem in Aitimatas.AsNoTracking()
+                            where eetsStatuses.Contains(eetsItem.statusDPXP)
+                            && eetsItem.HmerominiaLipsisApofasisEETS >= start && eetsItem.HmerominiaLipsisApofasisEETS <= end
+                            select new
+                            {
+                                ID = eetsItem.ID,
+                                KatigoriaProiontos = eetsItem.KatigoriaProiontos,
+                                IsotimoEuro = eetsItem.IsotimoEuro
+                            };
+
+            var query = from item in Aitimatas.AsNoTracking()
+                        join yets in yetsQuery on item.ID equals yets.ID into yetsGroup
+                            from y in yetsGroup.DefaultIfEmpty()
+                        join eets in eetsQuery on item.ID equals eets.ID into eetsGroup
+                            from e in eetsGroup.DefaultIfEmpty()
+                        where item.KatigoriaProiontos != null && item.KatigoriaProiontos != ""
+                        && item.Code != null && item.Code != ""
+                        && types.Contains(item.AitimaType.Value)
+                        && dpxpStatuses.Contains(item.statusDPXP)
+                        && 
+                        (
+                            (item.HmerominiaEgkrisisYETS >= start && item.HmerominiaEgkrisisYETS <= end)
+                            || (item.HmerominiaLipsisApofasisEETS >= start && item.HmerominiaLipsisApofasisEETS <= end)
+                        )
+                        select new
+                        {
+                            KatigoriaProiontos = item.KatigoriaProiontos,
+                            YetsIsotimoEuro = y.IsotimoEuro,
+                            EetsIsotimoEuro = e.IsotimoEuro
+                        } 
+                        into x
+                        group x by x.KatigoriaProiontos into grouped
+                        select new EgkriseisAnaKatigoriaProiontosDto
+                        {
+                            KatigoriaProiontos = grouped.Key,
+                            TotalIsotimoYETS = grouped.Sum(s => s == null ? 0m : s.YetsIsotimoEuro),
+                            TotalIsotimoEETS = grouped.Sum(s => s == null ? 0m : s.EetsIsotimoEuro)
+                        };
+
+            return query;
+            
+        }
