@@ -1,0 +1,74 @@
+using Microsoft.SharePoint;
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace TeiresiasApp.Extensions
+{
+    internal static class SPListItemExtensions
+    {
+        internal static TeiresiasFieldInfo GetDatetimeOrEmptyValue(this SPListItem item, string fieldName)
+        {
+            if (!item.ContentType.Fields.ContainsField(fieldName) || item[fieldName] == null)
+                return new TeiresiasFieldInfo(fieldName, new String('0', 8), true);
+
+            DateTime datetimeValue = DateTime.Parse(item[fieldName].ToString());
+            
+            return new TeiresiasFieldInfo(fieldName, datetimeValue.ToYearMonthDay());
+        }
+
+        internal static TeiresiasFieldInfo GetNumericOrEmptyValue(this SPListItem item, string fieldName, int totalLength)
+        {
+            string sign = "+";
+
+            if (!item.ContentType.Fields.ContainsField(fieldName) || item[fieldName] == null)
+                return new TeiresiasFieldInfo(fieldName, sign + new String('0', totalLength - 1), true);
+
+            string originalValue = item[fieldName].ToString();
+            if (!string.IsNullOrWhiteSpace(originalValue) && originalValue.StartsWith("-"))
+            {
+                sign = "-";
+            }
+
+            decimal result;
+            if (Decimal.TryParse(originalValue, out result))
+            {
+                result = Math.Round(result, 2);
+            }
+
+            string finalValue = sign + string.Format(CultureInfo.InvariantCulture, "{0:0.00}", result)
+                                             .RemoveSignAndDecimalPlaces()
+                                             .PadLeft(totalLength - 1, '0');
+
+            return new TeiresiasFieldInfo(fieldName, originalValue, finalValue);
+        }
+
+        internal static TeiresiasFieldInfo GetStringOrEmptyValue(this SPListItem item, string fieldName, int totalLength)
+        {
+            if (!item.ContentType.Fields.ContainsField(fieldName) || item[fieldName] == null)
+                return new TeiresiasFieldInfo(fieldName, "".PadRight(totalLength), true);
+
+            string itemAsString = item.IsLookUpField(fieldName) ? item[fieldName].ToString().Split(new string[] { "#" }, StringSplitOptions.RemoveEmptyEntries)[1]
+                                                                    : item[fieldName].ToString();
+            if (itemAsString.Length > totalLength)
+                itemAsString = itemAsString.Substring(0, totalLength);
+
+            return new TeiresiasFieldInfo(fieldName, itemAsString.RemoveCRLF().PadRight(totalLength));
+        }
+
+        static bool IsLookUpField(this SPListItem item, string fieldName)
+        {
+            SPField field = item.Fields[fieldName] as SPField;
+            if (field != null)
+            {
+                return field.Type == SPFieldType.Lookup;
+            }
+
+            return false;
+        }
+    }
+    
+}
