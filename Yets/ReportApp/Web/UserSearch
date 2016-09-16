@@ -1,0 +1,223 @@
+using ReportApplication.DataAccess;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Transactions;
+using System.Web;
+using System.Web.UI;
+using System.Web.UI.WebControls;
+using Telerik.Web.UI;
+
+namespace ReportApplication.Admin
+{
+    public partial class UserSearch : System.Web.UI.Page
+    {
+        YETSEETSReportEntities dataContext;
+
+        protected void Page_Load(object sender, EventArgs e)
+        {
+            if (!IsPostBack)
+            {
+                ClearData();
+            }
+        }
+
+        protected void btnSearch_Click(object sender, EventArgs e)
+        {
+            ClearData();
+
+            string userInput = txtUser.Text.Trim();
+
+            if (string.IsNullOrWhiteSpace(userInput)) return;
+
+            var users = DataContext.Users.Include("Report").Where(x => x.Username.Equals(userInput, StringComparison.CurrentCultureIgnoreCase));
+            if (users != null && users.Any())
+            {
+                lbUser.Text = users.FirstOrDefault().Username;
+
+                LoadReports();
+
+                var reports = new List<ReportInfo>();
+
+                foreach (var user in users)
+                {
+                    reports.Add(new ReportInfo() { ID = user.ReportID, Description = user.Report.Description, Group = user.Report.Group });
+                }
+                
+                AssignReports(reports);
+            }
+        }
+
+        void  LoadReports()
+        {
+            var allReports = DataContext.Reports.Select(s => new ReportInfo { ID = s.ID, Description = s.Description, Group = s.Group }).ToList().OrderBy(o => o.Group);
+
+            lstUserReports.DataValueField = "ID";
+            lstUserReports.DataTextField = "FullDescription";
+            lstUserReports.DataSource = allReports;
+            lstUserReports.DataBind();
+        }
+
+        void AssignReports(List<ReportInfo> userReports)
+        {
+            for (int i = 0; i < lstUserReports.Items.Count; i++)
+            {
+                string currentItem = lstUserReports.Items[i].Value;
+                if (!string.IsNullOrEmpty(currentItem))
+                {
+                    int val = Convert.ToInt32(currentItem);
+
+                    if (userReports.Any(x => x.ID == val))
+                        lstUserReports.Items[i].Checked = true;
+                }
+            }
+        }
+
+        void  ClearData()
+        {
+            lbUser.Text = string.Empty;
+            lbMessage.Text = string.Empty;
+            lstUserReports.Items.Clear();
+        }
+
+        protected void btnSave_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                DeleteUserReports();
+                SetUserReports();
+
+                DataContext.SaveChanges();
+
+                lbMessage.Text = "Η αποθήκευση ολοκληρώθηκε επιτυχώς";
+                lbMessage.ForeColor = System.Drawing.Color.Green;
+            }
+            catch (Exception ex)
+            {
+                lbMessage.Text = ex.Message;
+                lbMessage.ForeColor = System.Drawing.Color.Red;
+            }
+        }
+
+        private void SetUserReports()
+        {
+            string userInput = txtUser.Text.Trim();
+
+            for (int i = 0; i < lstUserReports.Items.Count; i++)
+            {
+                if (lstUserReports.Items[i].Checked)
+                {
+                    int reportID = Convert.ToInt32(lstUserReports.Items[i].Value);
+
+                    DataContext.Users.Add(new User()
+                    {
+                        ID = 0,
+                        ReportID = reportID,
+                        Username = userInput
+                    });
+                }
+            }
+        }
+
+        private void DeleteUserReports()
+        {
+            string userInput = txtUser.Text.Trim();
+
+            var userReports = DataContext.Users.Where(x => x.Username.Equals(userInput, StringComparison.CurrentCultureIgnoreCase));
+            if (userReports != null && userReports.Any())
+            {
+                foreach (var item in userReports)
+                {
+                    this.DataContext.Users.Remove(item);
+                }
+            }
+        }
+
+        protected YETSEETSReportEntities DataContext
+        {
+            get
+            {
+                if (dataContext == null)
+                    dataContext = new YETSEETSReportEntities();
+
+                return dataContext;
+            }
+        }
+
+        public override void Dispose()
+        {
+            if (dataContext != null)
+                dataContext.Dispose();
+
+            base.Dispose();
+        }
+
+        protected void lstUserReports_ItemDataBound(object sender, Telerik.Web.UI.RadListBoxItemEventArgs e)
+        {
+            RadListBoxItem listItem = e.Item;
+
+            if (listItem.Text.Contains("Αναφορές ΥΕΤΣ"))
+            {
+                listItem.BackColor = System.Drawing.Color.LightBlue;
+            }
+            else if (listItem.Text.Contains("Διοικητική Ενημέρωση ΕΕΤΣ – ΥΕΤΣ"))
+            {
+                listItem.BackColor = System.Drawing.Color.LightCyan;
+            }
+            else if (listItem.Text.Contains("Προς ΕΕΤΣ"))
+            {
+                listItem.BackColor = System.Drawing.Color.LightGray;
+            }
+            else if (listItem.Text.Contains("Επεξεργασία Αιτημάτων"))
+            {
+                listItem.BackColor = System.Drawing.Color.LightGreen;
+            }
+            else if (listItem.Text.Contains("Στατιστικά Καταστημάτων"))
+            {
+                listItem.BackColor = System.Drawing.Color.LightSkyBlue;
+            }
+            else if (listItem.Text.Contains("ΔΤΜΕ"))
+            {
+                listItem.BackColor = System.Drawing.Color.LightYellow;
+            }
+            else if (listItem.Text.Contains("Ανενεργό"))
+            {
+                listItem.BackColor = System.Drawing.Color.LightPink;
+            }
+        }
+    }
+
+    public class ReportInfo
+    {
+        public int ID { get; set; }
+        public string Description { get; set; }
+        public string Group { get; set; }
+        public string FullDescription
+        {
+            get { return string.Format("{0} - [{1}]", this.Description, ResolveGroup(this.Group)); }
+        }
+
+        string ResolveGroup(string input)
+        {
+            switch (input)
+            {
+                case ReportGroup.PRESIDENT: 
+                    return "Αναφορές ΥΕΤΣ";
+                case ReportGroup.DPXP:
+                    return "Διοικητική Ενημέρωση ΕΕΤΣ – ΥΕΤΣ";
+                case ReportGroup.PROS_EETS:
+                    return "Προς ΕΕΤΣ";
+                case ReportGroup.EPEXERGASIA_AITHMATWN:
+                    return "Επεξεργασία Αιτημάτων";
+                case ReportGroup.STATISTIKA_KATASTHMATWN:
+                    return "Στατιστικά Καταστημάτων";
+                case ReportGroup.DTME:
+                    return "ΔΤΜΕ";
+                case ReportGroup.NOT_ACTIVE:
+                    return "Ανενεργό";
+                default:
+                    return string.Empty;
+            }
+        }
+    }
+}
