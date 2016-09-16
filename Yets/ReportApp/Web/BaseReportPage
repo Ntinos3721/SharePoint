@@ -1,0 +1,178 @@
+using ReportApplication.Models;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using Telerik.Web.UI;
+using ReportApplication.Extensions;
+using System.Xml;
+using System.Xml.Linq;
+using System.IO;
+using System.Text;
+using ReportApplication.DataAccess;
+using System.Web.UI.WebControls;
+using System.Web.UI;
+
+namespace ReportApplication
+{
+    public class BaseReportPage : System.Web.UI.Page
+    {
+        YETSEETSReportEntities dataContext;
+        Report master;
+        string reportDescription;
+
+        protected override void OnInitComplete(EventArgs e)
+        {
+            base.OnInitComplete(e);
+
+            master = Page.Master as Report;
+            if (master != null)
+            {
+                ReportMain mainMaster = master.Master as ReportMain;
+                if (mainMaster != null)
+                {
+                    Uri uri = HttpContext.Current.Request.Url;
+                    string currentPage = string.Empty;
+                    int slashIndex = uri.LocalPath.LastIndexOf("/");
+                    if (slashIndex != -1) currentPage = uri.LocalPath.Substring(slashIndex + 1);
+
+                    if (mainMaster.UserReportPages != null)
+                    {
+                        ReportInfo report = null;
+                        bool byPassUsers = ApplicationSettings.IsBooleanSettingEnabled(ApplicationSettings.BY_PASS_USERS);
+
+                        if (byPassUsers)
+                        {
+                            if (mainMaster.UserReportPages.TryGetValue(currentPage, out report))
+                                reportDescription = report.Description;
+                        }
+                        else
+                        {
+                            if (mainMaster.UserReportPages.TryGetValue(currentPage, out report))
+                                reportDescription = report.Description;
+                            else if (!mainMaster.UserReportPages.Any(x => x.Key.Equals(currentPage, StringComparison.InvariantCultureIgnoreCase)))
+                                HttpContext.Current.Response.Redirect("~/NotAuth.aspx");
+                        }
+                    }
+                }
+            }
+        }
+
+        protected override void OnLoad(EventArgs e)
+        {
+            System.Threading.Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("el-GR");
+            base.OnLoad(e);
+        }
+
+        protected Report MasterPage
+        {
+            get { return master; }
+        }
+
+        protected string ReportDescription
+        {
+            get { return reportDescription; }
+        }
+
+        protected YETSEETSReportEntities DataContext
+        {
+            get
+            {
+                if (dataContext == null)
+                    dataContext = new YETSEETSReportEntities();
+
+                return dataContext;
+            }
+        }
+
+        protected void ApplyAmountFormat(GridItem gridItem, string dataField, bool isFooter = false)
+        {
+            if (isFooter)
+            {
+                GridFooterItem footerItem = (GridFooterItem)gridItem;
+                if (footerItem.OwnerTableView.Columns.FindByUniqueNameSafe(dataField) == null) return;
+
+                GridTableCell cell = footerItem[dataField] as GridTableCell;
+                if (cell != null)
+                {
+                    FormatDecimalColumn(cell, true);
+                    cell.ToolTip = cell.Text;
+                }
+            }
+            else
+            {
+                GridDataItem dataItem = (GridDataItem)gridItem;
+                if (dataItem.OwnerTableView.Columns.FindByUniqueNameSafe(dataField) == null) return;
+
+                GridTableCell cell = dataItem[dataField] as GridTableCell;
+                if (cell != null)
+                    FormatDecimalColumn(cell, false);
+            }
+        }
+
+        void FormatDecimalColumn(GridTableCell cell, bool isFooter)
+        {
+            string textToParse = cell.Text;
+            //e.g Sum : 146791468,13
+            if (!string.IsNullOrWhiteSpace(textToParse) && textToParse.IndexOf("Sum") != -1)
+            {
+                textToParse = isFooter ? cell.Text.Substring(6) : cell.Text;
+            }
+           
+
+            decimal result = 0m;
+            if (decimal.TryParse(textToParse, out result))
+            {
+                string formattedNumber = string.Format("{0:##,#0.00}", result, System.Globalization.CultureInfo.CreateSpecificCulture("el-GR")); //System.Globalization.CultureInfo.InvariantCulture
+                cell.Text = isFooter ? string.Format("{0}", formattedNumber) : formattedNumber;
+            }
+        }
+
+        void CreateMultiLineFooter(GridTableCell cell)
+        {
+            if (cell == null) return;
+            
+            if (!string.IsNullOrWhiteSpace(cell.Text) && cell.Text.Length > 10)
+            {
+                cell.Controls.Add(new LiteralControl(cell.Text.Substring(0, 9) + "<br/>"));
+                cell.Controls.Add(new LiteralControl(cell.Text.Substring(9)));
+            }
+        }
+
+        protected void ApplyExcelCurrencyFormat(ExcelExportCellFormattingEventArgs e)
+        {
+            e.Cell.Wrap = false;
+
+            e.Cell.HorizontalAlign = HorizontalAlign.Right;
+            e.Cell.Style["mso-number-format"] = @"\@";
+        }
+
+        protected void ApplyExcelAverageFormat(ExcelExportCellFormattingEventArgs e)
+        {
+            e.Cell.Wrap = false;
+
+            e.Cell.HorizontalAlign = HorizontalAlign.Center;
+            e.Cell.Style["mso-number-format"] = @"0\.0";
+        }
+
+        protected DateTime ResolveLastWorkingDay(DateTime dayToCheck)
+        {
+            var weekEnds = new DayOfWeek[] { DayOfWeek.Saturday, DayOfWeek.Sunday };
+
+            if (weekEnds.Contains(dayToCheck.DayOfWeek))
+                return ResolveLastWorkingDay(dayToCheck.AddDays(-1));
+            return dayToCheck;
+        }
+
+        public override void Dispose()
+        {
+            if (dataContext != null)
+            {
+                dataContext.Dispose();
+                dataContext = null;
+            }
+
+            base.Dispose();
+        }
+    }
+}
