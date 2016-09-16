@@ -1,0 +1,707 @@
+using Microsoft.SharePoint;
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Data.SqlClient;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace YETSEETSCommon
+{
+    public class DBHelper
+    {
+        readonly SPWeb web;
+        readonly SPListItem listItem;
+
+        public DBHelper(SPWeb web, SPListItem listItem)
+        {
+            this.web = web;
+            this.listItem = listItem;
+        }
+
+        public void CreateNomikaParameters(SqlCommand command)
+        {
+            //SPListItem currentItem = properties.ListItem;
+            ListItemHelper listItemHelper = new ListItemHelper(listItem);
+
+            var id = new SqlParameter("@SPID", SqlDbType.Int);
+            var code = new SqlParameter("@Code", SqlDbType.VarChar);
+            var katastima = new SqlParameter("@Katastima", SqlDbType.NVarChar);
+            var cdi = new SqlParameter("@Cdi", SqlDbType.VarChar);
+            var afm = new SqlParameter("@Afm", SqlDbType.VarChar);
+            var nomismaparastatikou = new SqlParameter("@NomismaParastatikou", SqlDbType.NVarChar);
+            var posoparastatikou = new SqlParameter("@PosoParastatikou", SqlDbType.Decimal);
+            var sinolikietisiaaxia = new SqlParameter("@SinolikiEtisiaAxia", SqlDbType.Decimal);
+            var megistiminieaaxiametaforon = new SqlParameter("@MegistiMinieaAxiaMetaforon", SqlDbType.Decimal);
+            var isotimoeuro = new SqlParameter("@IsotimoEuro", SqlDbType.Decimal);
+            var sinolikiaxiatrexonminas = new SqlParameter("@SinolikiAxiaTrexonMinas", SqlDbType.Decimal);
+            var hmerisioorio = new SqlParameter("@HmerisioOrio", SqlDbType.Decimal);
+            var nomismaekathsinalagis = new SqlParameter("@NomismaEkathSinalagis", SqlDbType.NVarChar);
+            var posoekathsinallagis = new SqlParameter("@PosoEkathSinallagis", SqlDbType.Decimal);
+            var posoekathsinallagiseuro = new SqlParameter("@PosoEkathSinallagisEuro", SqlDbType.Decimal);
+            var hmerominiaypovolis = new SqlParameter("@HmerominiaYpovolis", SqlDbType.DateTime);
+            var customer = new SqlParameter("@Customer", SqlDbType.NVarChar);
+            var statusdpxp = new SqlParameter("@statusDPXP", SqlDbType.NVarChar);
+            var statusmd = new SqlParameter("@statusMD", SqlDbType.NVarChar);
+            var statusypovolis = new SqlParameter("@StatusYpovolis", SqlDbType.NVarChar);
+            var title = new SqlParameter("@Title", SqlDbType.NVarChar);
+            var aitiologiasinallagis = new SqlParameter("@AitiologiaSinallagis", SqlDbType.NText);
+            var arithmosparastatikou = new SqlParameter("@ArithmosParastatikou", SqlDbType.NVarChar);
+            var dikaiouxos = new SqlParameter("@Dikaiouxos", SqlDbType.NVarChar);
+            var eidosentolea = new SqlParameter("@EidosEntolea", SqlDbType.NVarChar);
+            var edossinallagis = new SqlParameter("@EdosSinallagis", SqlDbType.NVarChar);
+            var monadadiax = new SqlParameter("@MonadaDiax", SqlDbType.NVarChar);
+            var limit = new SqlParameter("@limit", SqlDbType.Decimal);
+            var xoraproorismoukefaleon = new SqlParameter("@XoraProorismouKefaleon", SqlDbType.NVarChar);
+            var created = new SqlParameter("@Created", SqlDbType.DateTime);
+            var createdby = new SqlParameter("@CreatedBy", SqlDbType.NVarChar);
+            var modified = new SqlParameter("@Modified", SqlDbType.DateTime);
+            var modifiedby = new SqlParameter("@ModifiedBy", SqlDbType.NVarChar);
+            var sent2tee = new SqlParameter("@sent2TEE", SqlDbType.NVarChar);
+            var typos = new SqlParameter("@typos", SqlDbType.NVarChar);
+            var statuseets = new SqlParameter("@statusEETS", SqlDbType.NVarChar);
+            var tun = new SqlParameter("@TUN", SqlDbType.NVarChar);
+            var minas = new SqlParameter("@Minas", SqlDbType.NVarChar);
+            var statusmonadaekkatharisis = new SqlParameter("@statusMonadaEkkatharisis", SqlDbType.NVarChar);
+            var aitiologiypovolisaitimatosproseets = new SqlParameter("@AitiologiYpovolisAitimatosProsEETS", SqlDbType.NVarChar);
+            var aitoumenoidrima = new SqlParameter("@AitoumenoIdrima", SqlDbType.NVarChar);
+            var arprotegkriseosyets = new SqlParameter("@ArProtEgkriseosYETS", SqlDbType.NVarChar);
+            var arfakeloubt = new SqlParameter("@ArFakelouBT", SqlDbType.NVarChar);
+            var arprotapofasiseets = new SqlParameter("@ArProtApofasisEETS", SqlDbType.NVarChar);
+            var diaxeiristisky = new SqlParameter("@DiaxeiristisKY", SqlDbType.NVarChar);
+            var egkrithenposoeets = new SqlParameter("@EgkrithenPosoEETS", SqlDbType.NVarChar);
+            var egkrisieets = new SqlParameter("@EgkrisiEETS", SqlDbType.NVarChar);
+            var egkrisiyets = new SqlParameter("@EgkrisiYETS", SqlDbType.NVarChar);
+            var eidosparastatikou = new SqlParameter("@EidosParastatikou", SqlDbType.NVarChar);
+            var eidosproiontos = new SqlParameter("@EidosProiontos", SqlDbType.NVarChar);
+            var eisigitisa = new SqlParameter("@EisigitisA", SqlDbType.NVarChar);
+            var eisigitisb = new SqlParameter("@EisigitisB", SqlDbType.NVarChar);
+            var hmerominiaekkathsinallagis = new SqlParameter("@HmerominiaEkkathSinallagis", SqlDbType.DateTime);
+            var hmerominiakataxorisissinallagis = new SqlParameter("@HmerominiaKataxorisisSinallagis", SqlDbType.DateTime);
+            var hmerominiaapostolisegkrisis = new SqlParameter("@HmerominiaApostolisEgkrisis", SqlDbType.DateTime);
+            var hmerominiaapofasiseets = new SqlParameter("@HmerominiaApofasisEETS", SqlDbType.DateTime);
+            var hmerominiaegkrisisyets = new SqlParameter("@HmerominiaEgkrisisYETS", SqlDbType.DateTime);
+            var hmerominiaegkrisismd = new SqlParameter("@HmerominiaEgkrisisMD", SqlDbType.DateTime);
+            var hmerominiaisotimias = new SqlParameter("@HmerominiaIsotimias", SqlDbType.NVarChar);
+            var hmerominialiksistimologiou = new SqlParameter("@HmerominiaLiksisTimologiou", SqlDbType.DateTime);
+            var hmerominialipsisapofasiseets = new SqlParameter("@HmerominiaLipsisApofasisEETS", SqlDbType.DateTime);
+            var hmerominiaparadosisproiontos = new SqlParameter("@HmerominiaParadosisProiontos", SqlDbType.DateTime);
+            var hmerominiaparastatikou = new SqlParameter("@HmerominiaParastatikou", SqlDbType.DateTime);
+            var thetikieisisgisiproseets = new SqlParameter("@ThetikiEisisgisiProsEETS", SqlDbType.Bit);
+            var isotimia = new SqlParameter("@Isotimia", SqlDbType.Decimal);
+            var katigoriaproiontos = new SqlParameter("@KatigoriaProiontos", SqlDbType.NVarChar);
+            var kodikosaeis = new SqlParameter("@KodikosAEIS", SqlDbType.NVarChar);
+            var leptomeriesaporripsis = new SqlParameter("@LeptomeriesAporripsis", SqlDbType.NText);
+            var orospliromis = new SqlParameter("@OrosPliromis", SqlDbType.NVarChar);
+            var sinolikoposo = new SqlParameter("@SinolikoPoso", SqlDbType.Decimal);
+            var sxoliapliromis = new SqlParameter("@SxoliaPliromis", SqlDbType.NText);
+            var sxolioapofasiseets = new SqlParameter("@SxolioApofasisEETS", SqlDbType.NText);
+            var sxolioegkryets = new SqlParameter("@SxolioEgkrYETS", SqlDbType.NText);
+            var sxolioeisigisis = new SqlParameter("@SxolioEisigisis", SqlDbType.NText);
+            var sxoliosinallagis = new SqlParameter("@SxolioSinallagis", SqlDbType.NText);
+            var tilepikoinonias = new SqlParameter("@TilEpikoinonias", SqlDbType.NVarChar);
+            var fek = new SqlParameter("@Fek", SqlDbType.NVarChar);
+            var aeislimitinfo = new SqlParameter("@AEISLimitInfo", SqlDbType.Decimal);
+            var aeislimitinfomonth = new SqlParameter("@AEISLimitInfoMonth", SqlDbType.Decimal);
+            var aeislimitinfoyear = new SqlParameter("@AEISLimitInfoYear", SqlDbType.Decimal);
+            var dpxpusers = new SqlParameter("@DPXPUsers", SqlDbType.NText);
+            var epitropi = new SqlParameter("@epitropi", SqlDbType.NVarChar);
+            var groupaitimatos = new SqlParameter("@GroupAitimatos", SqlDbType.NVarChar);
+            var limitinfo = new SqlParameter("@LimitInfo", SqlDbType.Decimal);
+            var limitinfomonth = new SqlParameter("@LimitInfoMonth", SqlDbType.Decimal);
+            var limitinfoyear = new SqlParameter("@LimitInfoYear", SqlDbType.Decimal);
+            var mdusers = new SqlParameter("@MDUsers", SqlDbType.NText);
+            var mypath = new SqlParameter("@MyPath", SqlDbType.NVarChar);
+            var npyear = new SqlParameter("@npYear", SqlDbType.NVarChar);
+            var aitimatype = new SqlParameter("@AitimaType", SqlDbType.Int);
+            var proskataxorisiky = new SqlParameter("@ProsKataxorisiKY", SqlDbType.NVarChar);
+            var hmerominiaAxiologisis = new SqlParameter("@HmerominiaAxiologisis", SqlDbType.DateTime);
+            var url = new SqlParameter("@Url", SqlDbType.NVarChar);
+
+            id.Value = listItem.ID;
+            code.Value = listItemHelper.GetStringOrLookupValue("Κωδικός Αιτήματος");
+            katastima.Value = listItemHelper.GetStringOrLookupValue("Κωδικός Καταστήματος");
+            cdi.Value = listItemHelper.GetStringOrLookupValue("CDI Πελάτη");
+            afm.Value = listItemHelper.GetStringOrLookupValue("ΑΦΜ");
+            nomismaparastatikou.Value = listItemHelper.GetStringOrLookupValue("Νόμισμα");
+            posoparastatikou.Value = listItemHelper.GetDecimalOrDefaultValue("Ποσό Παραστατικού");
+            sinolikietisiaaxia.Value = listItemHelper.GetDecimalOrDefaultValue("Συνολική Ετήσια Αξία");
+            megistiminieaaxiametaforon.Value = listItemHelper.GetDecimalOrDefaultValue("Μέγιστη Μηνιαία Αξία Μεταφορών Κεφαλαίου στο Εξωτερικό");
+            isotimoeuro.Value = listItemHelper.GetDecimalOrDefaultValue("Ισότιμο σε ΕΥΡΩ");
+            sinolikiaxiatrexonminas.Value = listItemHelper.GetDecimalOrDefaultValue("Συνολική Αξία Συναλλαγών για τον τρέχοντα μήνα");
+            hmerisioorio.Value = listItemHelper.GetDecimalOrDefaultValue("Ημερήσιο Όριο");
+            nomismaekathsinalagis.Value = listItemHelper.GetStringOrLookupValue("Νόμισμα Εκκαθ. Συν/γής");
+            posoekathsinallagis.Value = listItemHelper.GetDecimalOrDefaultValue("Ποσό Εκκαθάρισης Συναλλαγής");
+            posoekathsinallagiseuro.Value = listItemHelper.GetDecimalOrDefaultValue("Ποσό Εκκαθ. Συναλλαγής ΕΥΡΩ");
+            hmerominiaypovolis.Value = listItemHelper.GetDateΤimeValue("Ημερομηνία υποβολής αιτήματος από τον Πελάτη");
+            customer.Value = listItemHelper.GetStringOrLookupValue("Πελάτης/Εντολέας");
+            statusdpxp.Value = listItemHelper.GetStringOrLookupValue("status ΔΠΧΠ");
+            statusmd.Value = listItemHelper.GetStringOrLookupValue("status ΜΟΝΑΔΑΣ ΔΙΑΧΕΙΡΙΣΗΣ");
+            statusypovolis.Value = listItemHelper.GetStringOrLookupValue("Status Υποβολής");
+            title.Value = listItemHelper.GetStringOrLookupValue("Title");
+            aitiologiasinallagis.Value = listItemHelper.GetStringOrLookupValue("Αιτιολογία Συναλλαγής");
+            arithmosparastatikou.Value = listItemHelper.GetStringOrLookupValue("Αριθμός Παραστατικού");
+            dikaiouxos.Value = listItemHelper.GetStringOrLookupValue("Δικαιούχος Εντολής");
+            eidosentolea.Value = listItemHelper.GetStringOrLookupValue("Είδος Εντολέα");
+            edossinallagis.Value = listItemHelper.GetStringOrLookupValue("Είδος Συναλλαγής");
+            monadadiax.Value = listItemHelper.GetStringOrLookupValue("Μονάδα Διαχείρισης");
+            limit.Value = listItemHelper.GetDecimalOrDefaultValue("Όριο");
+            xoraproorismoukefaleon.Value = listItemHelper.GetStringOrLookupValue("Χώρα Προορισμού Κεφαλαίων");
+            created.Value = listItemHelper.GetDateΤimeValue("Created");
+            createdby.Value = listItemHelper.GetStringOrLookupValue("Created By");
+            modified.Value = listItemHelper.GetDateΤimeValue("Modified");
+            modifiedby.Value = listItemHelper.GetStringOrLookupValue("Modified By");
+            sent2tee.Value = listItemHelper.GetStringOrLookupValue("sent2TEE");
+            typos.Value = listItemHelper.GetStringOrLookupValue("typos");
+            statuseets.Value = listItemHelper.GetStringOrLookupValue("status ΕΕΤΣ");
+            tun.Value = listItemHelper.GetStringOrLookupValue("TUNSynallagiNumber");
+            minas.Value = listItemHelper.GetStringOrLookupValue("ΜΗΝΑΣ");
+            statusmonadaekkatharisis.Value = listItemHelper.GetStringOrLookupValue("status ΜΟΝΑΔΑ ΕΚΚΑΘΑΡΙΣΗΣ");
+            aitiologiypovolisaitimatosproseets.Value = listItemHelper.GetStringOrLookupValue("Αιτιολογία Υποβολής Αιτήματος προς την ΕΕΤΣ");
+            aitoumenoidrima.Value = listItemHelper.GetStringOrLookupValue("Αιτούμενο Ίδρυμα");
+            arprotegkriseosyets.Value = listItemHelper.GetStringOrLookupValue("Αρ. Πρωτ. Εγκρίσεως ΥΕΤΣ");
+            arfakeloubt.Value = listItemHelper.GetStringOrLookupValue("Αρ. φακέλου Bank Trade");
+            arprotapofasiseets.Value = listItemHelper.GetStringOrLookupValue("Αριθμός Πρωτ. Αποφάσεως ΕΕΤΣ");
+            diaxeiristisky.Value = listItemHelper.GetStringOrLookupValue("Διαχειριστής ΚΥ");
+            egkrithenposoeets.Value = listItemHelper.GetDecimalOrDefaultValue("Εγκριθέν ποσό από ΕΕΤΣ");
+            egkrisieets.Value = listItemHelper.GetStringOrLookupValue("Έγκριση ΕΕΤΣ");
+            egkrisiyets.Value = listItemHelper.GetStringOrLookupValue("Έγκριση ΥΕΤΣ");
+            eidosparastatikou.Value = listItemHelper.GetStringOrLookupValue("Είδος Παραστατικού");
+            eidosproiontos.Value = listItemHelper.GetStringOrLookupValue("Είδος Προϊόντος");
+            eisigitisa.Value = listItemHelper.GetStringOrLookupValue("Εισηγητής Α");
+            eisigitisb.Value = listItemHelper.GetStringOrLookupValue("Εισηγητής Β");
+            hmerominiaekkathsinallagis.Value = listItemHelper.GetDateΤimeValue("Ημ/νία Εκκαθ. Συν/γής");
+            hmerominiakataxorisissinallagis.Value = listItemHelper.GetDateΤimeValue("Ημ/νία Καταχωρ. Συν/γής");
+            hmerominiaapostolisegkrisis.Value = listItemHelper.GetDateΤimeValue("Ημερομηνία Αποστολής Εγκρίσεως ΕΕΤΣ/ΥΕΤΣ");
+            hmerominiaapofasiseets.Value = listItemHelper.GetDateΤimeValue("Ημερομηνία Απόφασης ΕΕΤΣ");
+            hmerominiaegkrisisyets.Value = listItemHelper.GetDateΤimeValue("Ημερομηνία Εγκρίσεως ΥΕΤΣ");
+            hmerominiaegkrisismd.Value = listItemHelper.GetDateΤimeValue("Ημερομηνία έγκρισης ΜΔ");
+            hmerominiaisotimias.Value = listItemHelper.GetStringOrLookupValue("Ημερομηνία Ισοτιμίας");
+            hmerominialiksistimologiou.Value = listItemHelper.GetDateΤimeValue("Ημερομηνία Λήξης Τιμολογίου");
+            hmerominialipsisapofasiseets.Value = listItemHelper.GetDateΤimeValue("Ημερομηνία λήψης απόφασης ΕΕΤΣ");
+            hmerominiaparadosisproiontos.Value = listItemHelper.GetDateΤimeValue("Ημερομηνία Παράδοσης Προϊόντος");
+            hmerominiaparastatikou.Value = listItemHelper.GetDateΤimeValue("Ημερομηνία Παραστατικού");
+            thetikieisisgisiproseets.Value = listItemHelper.GetStringOrLookupValue("Θετική Εισήγηση προς ΕΕΤΣ");
+            isotimia.Value = listItemHelper.GetDecimalOrDefaultValue("Ισοτιμία");
+            katigoriaproiontos.Value = listItemHelper.GetStringOrLookupValue("Κατηγορία Προϊόντος");
+            kodikosaeis.Value = listItemHelper.GetStringOrLookupValue("ΚωδικόςΑΕΙΣ");
+            leptomeriesaporripsis.Value = listItemHelper.GetStringOrLookupValue("Λεπτομέρειες Απόρριψης");
+            orospliromis.Value = listItemHelper.GetStringOrLookupValue("Όρος Πληρωμής");
+            sinolikoposo.Value = listItemHelper.GetDecimalOrDefaultValue("Συνολικό Ποσό");
+            sxoliapliromis.Value = listItemHelper.GetStringOrLookupValue("Σχόλια Πληρωμής");
+            sxolioapofasiseets.Value = listItemHelper.GetStringOrLookupValue("Σχόλιο Αποφ. ΕΕΤΣ");
+            sxolioegkryets.Value = listItemHelper.GetStringOrLookupValue("Σχόλιο Έγκρ. ΥΕΤΣ");
+            sxolioeisigisis.Value = listItemHelper.GetStringOrLookupValue("Σχόλιο Εισήγησης");
+            sxoliosinallagis.Value = listItemHelper.GetStringOrLookupValue("Σχόλιο Συναλλαγής");
+            tilepikoinonias.Value = listItemHelper.GetStringOrLookupValue("Τηλέφωνο Επικοινωνίας");
+            fek.Value = listItemHelper.GetStringOrLookupValue("FEKLookup"); //ΦΕΚ
+            aeislimitinfo.Value = listItemHelper.GetDecimalOrDefaultValue("AEIS_LimitInfo");
+            aeislimitinfomonth.Value = listItemHelper.GetDecimalOrDefaultValue("AEIS_LimitInfoMonth");
+            aeislimitinfoyear.Value = listItemHelper.GetDecimalOrDefaultValue("AEIS_LimitInfoYear");
+            dpxpusers.Value = listItemHelper.GetStringOrLookupValue("DPXPUsers");
+            epitropi.Value = listItemHelper.GetStringOrLookupValue("epitropi");
+            groupaitimatos.Value = listItemHelper.GetStringOrLookupValue("Group");
+            limitinfo.Value = listItemHelper.GetDecimalOrDefaultValue("LimitInfo");
+            limitinfomonth.Value = listItemHelper.GetDecimalOrDefaultValue("LimitInfoMonth");
+            limitinfoyear.Value = listItemHelper.GetDecimalOrDefaultValue("LimitInfoYear");
+            mdusers.Value = listItemHelper.GetStringOrLookupValue("MDUsers");
+            mypath.Value = listItemHelper.GetStringOrLookupValue("MyPath");
+            npyear.Value = listItemHelper.GetStringOrLookupValue("npYear");
+            aitimatype.Value = (int)AitimaType.NOMIKA;
+            proskataxorisiky.Value = listItemHelper.GetStringOrLookupValue("Προς Καταχώρηση από Κ/Υ");
+            hmerominiaAxiologisis.Value = listItemHelper.GetDateΤimeValue("Ημερομηνία Αξιολόγησης");
+
+            string listUrl = ResolveUrl(web);
+            if (listItemHelper.GetStringOrLookupValue("Κωδικός Καταστήματος") != null && listItemHelper.GetStringOrLookupValue("Κωδικός Αιτήματος") != null)
+            {
+                url.Value = listUrl + "/" + Convert.ToString(listItemHelper.GetStringOrLookupValue("Κωδικός Καταστήματος")) + "?FilterField1=KodikosAitimatos&FilterValue1=" + Convert.ToString(listItemHelper.GetStringOrLookupValue("Κωδικός Αιτήματος"));
+            }
+
+            command.CommandType = CommandType.Text;
+            command.Parameters.Add(id);
+            command.Parameters.Add(code);
+            command.Parameters.Add(katastima);
+            command.Parameters.Add(cdi);
+            command.Parameters.Add(afm);
+            command.Parameters.Add(nomismaparastatikou);
+            command.Parameters.Add(posoparastatikou);
+            command.Parameters.Add(sinolikietisiaaxia);
+            command.Parameters.Add(megistiminieaaxiametaforon);
+            command.Parameters.Add(isotimoeuro);
+            command.Parameters.Add(sinolikiaxiatrexonminas);
+            command.Parameters.Add(hmerisioorio);
+            command.Parameters.Add(nomismaekathsinalagis);
+            command.Parameters.Add(posoekathsinallagis);
+            command.Parameters.Add(posoekathsinallagiseuro);
+            command.Parameters.Add(hmerominiaypovolis);
+            command.Parameters.Add(customer);
+            command.Parameters.Add(statusdpxp);
+            command.Parameters.Add(statusmd);
+            command.Parameters.Add(statusypovolis);
+            command.Parameters.Add(title);
+            command.Parameters.Add(aitiologiasinallagis);
+            command.Parameters.Add(arithmosparastatikou);
+            command.Parameters.Add(dikaiouxos);
+            command.Parameters.Add(eidosentolea);
+            command.Parameters.Add(edossinallagis);
+            command.Parameters.Add(monadadiax);
+            command.Parameters.Add(limit);
+            command.Parameters.Add(xoraproorismoukefaleon);
+            command.Parameters.Add(created);
+            command.Parameters.Add(createdby);
+            command.Parameters.Add(modified);
+            command.Parameters.Add(modifiedby);
+            command.Parameters.Add(sent2tee);
+            command.Parameters.Add(typos);
+            command.Parameters.Add(statuseets);
+            command.Parameters.Add(tun);
+            command.Parameters.Add(minas);
+            command.Parameters.Add(statusmonadaekkatharisis);
+            command.Parameters.Add(aitiologiypovolisaitimatosproseets);
+            command.Parameters.Add(aitoumenoidrima);
+            command.Parameters.Add(arprotegkriseosyets);
+            command.Parameters.Add(arfakeloubt);
+            command.Parameters.Add(arprotapofasiseets);
+            command.Parameters.Add(diaxeiristisky);
+            command.Parameters.Add(egkrithenposoeets);
+            command.Parameters.Add(egkrisieets);
+            command.Parameters.Add(egkrisiyets);
+            command.Parameters.Add(eidosparastatikou);
+            command.Parameters.Add(eidosproiontos);
+            command.Parameters.Add(eisigitisa);
+            command.Parameters.Add(eisigitisb);
+            command.Parameters.Add(hmerominiaekkathsinallagis);
+            command.Parameters.Add(hmerominiakataxorisissinallagis);
+            command.Parameters.Add(hmerominiaapostolisegkrisis);
+            command.Parameters.Add(hmerominiaapofasiseets);
+            command.Parameters.Add(hmerominiaegkrisisyets);
+            command.Parameters.Add(hmerominiaegkrisismd);
+            command.Parameters.Add(hmerominiaisotimias);
+            command.Parameters.Add(hmerominialiksistimologiou);
+            command.Parameters.Add(hmerominialipsisapofasiseets);
+            command.Parameters.Add(hmerominiaparadosisproiontos);
+            command.Parameters.Add(hmerominiaparastatikou);
+            command.Parameters.Add(thetikieisisgisiproseets);
+            command.Parameters.Add(isotimia);
+            command.Parameters.Add(katigoriaproiontos);
+            command.Parameters.Add(kodikosaeis);
+            command.Parameters.Add(leptomeriesaporripsis);
+            command.Parameters.Add(orospliromis);
+            command.Parameters.Add(sinolikoposo);
+            command.Parameters.Add(sxoliapliromis);
+            command.Parameters.Add(sxolioapofasiseets);
+            command.Parameters.Add(sxolioegkryets);
+            command.Parameters.Add(sxolioeisigisis);
+            command.Parameters.Add(sxoliosinallagis);
+            command.Parameters.Add(tilepikoinonias);
+            command.Parameters.Add(fek);
+            command.Parameters.Add(aeislimitinfo);
+            command.Parameters.Add(aeislimitinfomonth);
+            command.Parameters.Add(aeislimitinfoyear);
+            command.Parameters.Add(dpxpusers);
+            command.Parameters.Add(epitropi);
+            command.Parameters.Add(groupaitimatos);
+            command.Parameters.Add(limitinfo);
+            command.Parameters.Add(limitinfomonth);
+            command.Parameters.Add(limitinfoyear);
+            command.Parameters.Add(mdusers);
+            command.Parameters.Add(mypath);
+            command.Parameters.Add(npyear);
+            command.Parameters.Add(aitimatype);
+            command.Parameters.Add(proskataxorisiky);
+            command.Parameters.Add(hmerominiaAxiologisis);
+            command.Parameters.Add(url);
+        }
+
+        public void CreateFysikaParameters(SqlCommand command)
+        {
+            ListItemHelper listItemHelper = new ListItemHelper(listItem);
+
+            var id = new SqlParameter("@SPID", SqlDbType.Int);
+            var code = new SqlParameter("@Code", SqlDbType.VarChar);
+            var katastima = new SqlParameter("@Katastima", SqlDbType.NVarChar);
+            var cdi = new SqlParameter("@Cdi", SqlDbType.VarChar);
+            var afm = new SqlParameter("@Afm", SqlDbType.VarChar);
+            var nomismaparastatikou = new SqlParameter("@NomismaParastatikou", SqlDbType.NVarChar);
+            var posoparastatikou = new SqlParameter("@PosoParastatikou", SqlDbType.Decimal);
+            var isotimoeuro = new SqlParameter("@IsotimoEuro", SqlDbType.Decimal);
+            var nomismaekathsinalagis = new SqlParameter("@NomismaEkathSinalagis", SqlDbType.NVarChar);
+            var posoekathsinallagis = new SqlParameter("@PosoEkathSinallagis", SqlDbType.Decimal);
+            var posoekathsinallagiseuro = new SqlParameter("@PosoEkathSinallagisEuro", SqlDbType.Decimal);
+            var hmerominiaypovolis = new SqlParameter("@HmerominiaYpovolis", SqlDbType.DateTime);
+            var customer = new SqlParameter("@Customer", SqlDbType.NVarChar);
+            var statusdpxp = new SqlParameter("@statusDPXP", SqlDbType.NVarChar);
+            var statusmd = new SqlParameter("@statusMD", SqlDbType.NVarChar);
+            var statusypovolis = new SqlParameter("@StatusYpovolis", SqlDbType.NVarChar);
+            var title = new SqlParameter("@Title", SqlDbType.NVarChar);
+            var aitiologiasinallagis = new SqlParameter("@AitiologiaSinallagis", SqlDbType.NText);
+            var dikaiouxos = new SqlParameter("@Dikaiouxos", SqlDbType.NVarChar);
+            var eidosentolea = new SqlParameter("@EidosEntolea", SqlDbType.NVarChar);
+            var edossinallagis = new SqlParameter("@EdosSinallagis", SqlDbType.NVarChar);
+            var monadadiax = new SqlParameter("@MonadaDiax", SqlDbType.NVarChar);
+            var xoraproorismoukefaleon = new SqlParameter("@XoraProorismouKefaleon", SqlDbType.NVarChar);
+            var created = new SqlParameter("@Created", SqlDbType.DateTime);
+            var createdby = new SqlParameter("@CreatedBy", SqlDbType.NVarChar);
+            var modified = new SqlParameter("@Modified", SqlDbType.DateTime);
+            var modifiedby = new SqlParameter("@ModifiedBy", SqlDbType.NVarChar);
+            var sent2tee = new SqlParameter("@sent2TEE", SqlDbType.NVarChar);
+            var typos = new SqlParameter("@typos", SqlDbType.NVarChar);
+            var statuseets = new SqlParameter("@statusEETS", SqlDbType.NVarChar);
+            var tun = new SqlParameter("@TUN", SqlDbType.NVarChar);
+            var minas = new SqlParameter("@Minas", SqlDbType.NVarChar);
+            var aitoumenoidrima = new SqlParameter("@AitoumenoIdrima", SqlDbType.NVarChar);
+            var arprotegkriseosyets = new SqlParameter("@ArProtEgkriseosYETS", SqlDbType.NVarChar);
+            var arprotapofasiseets = new SqlParameter("@ArProtApofasisEETS", SqlDbType.NVarChar);
+            var egkrithenposoeets = new SqlParameter("@EgkrithenPosoEETS", SqlDbType.NVarChar);
+            var eidosproiontos = new SqlParameter("@EidosProiontos", SqlDbType.NVarChar);
+            var eisigitisa = new SqlParameter("@EisigitisA", SqlDbType.NVarChar);
+            var eisigitisb = new SqlParameter("@EisigitisB", SqlDbType.NVarChar);
+            var hmerominiaekkathsinallagis = new SqlParameter("@HmerominiaEkkathSinallagis", SqlDbType.DateTime);
+            var hmerominiakataxorisissinallagis = new SqlParameter("@HmerominiaKataxorisisSinallagis", SqlDbType.DateTime);
+            var hmerominiaapostolisegkrisis = new SqlParameter("@HmerominiaApostolisEgkrisis", SqlDbType.DateTime);
+            var hmerominiaapofasiseets = new SqlParameter("@HmerominiaApofasisEETS", SqlDbType.DateTime);
+            var hmerominiaegkrisisyets = new SqlParameter("@HmerominiaEgkrisisYETS", SqlDbType.DateTime);
+            var hmerominiaegkrisismd = new SqlParameter("@HmerominiaEgkrisisMD", SqlDbType.DateTime);
+            var hmerominiaisotimias = new SqlParameter("@HmerominiaIsotimias", SqlDbType.NVarChar);
+            var hmerominialipsisapofasiseets = new SqlParameter("@HmerominiaLipsisApofasisEETS", SqlDbType.DateTime);
+            var thetikieisisgisiproseets = new SqlParameter("@ThetikiEisisgisiProsEETS", SqlDbType.Bit);
+            var isotimia = new SqlParameter("@Isotimia", SqlDbType.Decimal);
+            var katigoriaproiontos = new SqlParameter("@KatigoriaProiontos", SqlDbType.NVarChar);
+            var leptomeriesaporripsis = new SqlParameter("@LeptomeriesAporripsis", SqlDbType.NText);
+            var sxolioapofasiseets = new SqlParameter("@SxolioApofasisEETS", SqlDbType.NText);
+            var sxolioegkryets = new SqlParameter("@SxolioEgkrYETS", SqlDbType.NText);
+            var sxoliosinallagis = new SqlParameter("@SxolioSinallagis", SqlDbType.NText);
+            var tilepikoinonias = new SqlParameter("@TilEpikoinonias", SqlDbType.NVarChar);
+            var aa = new SqlParameter("@AA", SqlDbType.Int);
+            var kataliktikihmerominiapliromis = new SqlParameter("@KataliktikiHmerominiaPliromis", SqlDbType.DateTime);
+            var kodikosesek = new SqlParameter("@KodikosESEK", SqlDbType.NVarChar);
+            var eisigisisxoliakatastimatos = new SqlParameter("@EisigisiSxoliaKatastimatos", SqlDbType.NText);
+            var eisigisimd = new SqlParameter("@EisigisiMD", SqlDbType.NVarChar);
+            var aeislimitinfo = new SqlParameter("@AEISLimitInfo", SqlDbType.Decimal);
+            var aeislimitinfomonth = new SqlParameter("@AEISLimitInfoMonth", SqlDbType.Decimal);
+            var aeislimitinfoyear = new SqlParameter("@AEISLimitInfoYear", SqlDbType.Decimal);
+            var dpxpusers = new SqlParameter("@DPXPUsers", SqlDbType.NText);
+            var epitropi = new SqlParameter("@epitropi", SqlDbType.NVarChar);
+            var limitinfo = new SqlParameter("@LimitInfo", SqlDbType.Decimal);
+            var limitinfomonth = new SqlParameter("@LimitInfoMonth", SqlDbType.Decimal);
+            var limitinfoyear = new SqlParameter("@LimitInfoYear", SqlDbType.Decimal);
+            var mdusers = new SqlParameter("@MDUsers", SqlDbType.NText);
+            var npyear = new SqlParameter("@npYear", SqlDbType.NVarChar);
+            var aitimatype = new SqlParameter("@AitimaType", SqlDbType.Int);
+            var hmerominiaAxiologisis = new SqlParameter("@HmerominiaAxiologisis", SqlDbType.DateTime);
+            var url = new SqlParameter("@Url", SqlDbType.NVarChar);
+
+            id.Value = listItem.ID;
+            code.Value = listItemHelper.GetStringOrLookupValue("Κωδικός Αιτήματος πελάτη (ΛΣ)");
+            katastima.Value = listItemHelper.GetStringOrLookupValue("Κωδικός Καταστήματος-Δ/νσης (ΛΣ)");
+            cdi.Value = listItemHelper.GetStringOrLookupValue("CDI (ΛΣ)");
+            afm.Value = listItemHelper.GetStringOrLookupValue("ΑΦΜ Πελάτη (ΛΣ)");
+            nomismaparastatikou.Value = listItemHelper.GetStringOrLookupValue("Νόμισμα Τιμολογίου/ Παραστατικού (ΛΣ)");
+            posoparastatikou.Value = listItemHelper.GetDecimalOrDefaultValue("Ποσό Παραστατικού πελάτη (ΛΣ)");
+            isotimoeuro.Value = listItemHelper.GetDecimalOrDefaultValue("Ισότιμο σε EUR (ΛΣ)");
+            nomismaekathsinalagis.Value = listItemHelper.GetStringOrLookupValue("Νόμισμα Εκκαθ. Συν/γής (ΛΣ)");
+            posoekathsinallagis.Value = listItemHelper.GetDecimalOrDefaultValue("Ποσό Εκκαθ. Συν/γής (ΛΣ)");
+            posoekathsinallagiseuro.Value = listItemHelper.GetDecimalOrDefaultValue("Ποσό Εκκαθ. Συν/γής ΕΥΡΩ");
+            hmerominiaypovolis.Value = listItemHelper.GetDateΤimeValue("Ημ/νία υποβολής αιτήματος από τον Πελάτη (ΛΣ)");
+            customer.Value = listItemHelper.GetStringOrLookupValue("Πελάτης-Εντολέας (ΛΣ)");
+            statusdpxp.Value = listItemHelper.GetStringOrLookupValue("Status ΔΠΧΠ (ΛΣ)");
+            statusmd.Value = listItemHelper.GetStringOrLookupValue("Status Μονάδας Διαχείρισης (ΛΣ)");
+            statusypovolis.Value = listItemHelper.GetStringOrLookupValue("Status Υποβολής (ΛΣ)");
+            title.Value = listItemHelper.GetStringOrLookupValue("Title");
+            aitiologiasinallagis.Value = listItemHelper.GetStringOrLookupValue("Αιτιολογία συναλλαγής (ΛΣ)");
+            dikaiouxos.Value = listItemHelper.GetStringOrLookupValue("Δικαιούχος (ΛΣ)");
+            eidosentolea.Value = listItemHelper.GetStringOrLookupValue("Είδος Πελάτη/Εντολέα (ΛΣ)");
+            edossinallagis.Value = listItemHelper.GetStringOrLookupValue("Είδος Συναλλαγής (ΛΣ)");
+            monadadiax.Value = listItemHelper.GetStringOrLookupValue("Μονάδα Διαχείρισης Σχέσης (ΛΣ)");
+            xoraproorismoukefaleon.Value = listItemHelper.GetStringOrLookupValue("Χώρα προορισμού κεφαλαίων (ΛΣ)");
+            created.Value = listItemHelper.GetDateΤimeValue("Created");
+            createdby.Value = listItemHelper.GetStringOrLookupValue("Created By");
+            modified.Value = listItemHelper.GetDateΤimeValue("Modified");
+            modifiedby.Value = listItemHelper.GetStringOrLookupValue("Modified By");
+            sent2tee.Value = listItemHelper.GetStringOrLookupValue("sent2TEE");
+            typos.Value = listItemHelper.GetStringOrLookupValue("typos");
+            statuseets.Value = listItemHelper.GetStringOrLookupValue("Status ΕΕΤΣ (ΛΣ)");
+            string internalName = listItem.Fields.GetFieldByInternalName("fpTUN").InternalName;
+            tun.Value = listItemHelper.GetStringOrLookupValue(internalName);
+            minas.Value = listItemHelper.GetStringOrLookupValue("ΜΗΝΑΣ (ΛΣ)");
+            aitoumenoidrima.Value = listItemHelper.GetStringOrLookupValue("Αιτούμενο Ίδρυμα");
+            arprotegkriseosyets.Value = listItemHelper.GetStringOrLookupValue("Αρ.Πρωτ. Εγκρίσεως ΥΕΤΣ (ΛΣ)");
+            arprotapofasiseets.Value = listItemHelper.GetStringOrLookupValue("Αρ.Πρωτ. Αποφάσεως ΕΕΤΣ (ΛΣ)");
+            string internalEgrithenPosoEETS = listItem.Fields.GetFieldByInternalName("egkrithenPosoApoEETs").InternalName;
+            egkrithenposoeets.Value = listItemHelper.GetDecimalOrDefaultValue(internalEgrithenPosoEETS);
+            eidosproiontos.Value = listItemHelper.GetStringOrLookupValue("Είδος προϊόντος (ΛΣ)");
+            eisigitisa.Value = listItemHelper.GetStringOrLookupValue("Εισηγητής Α (ΛΣ)");
+            eisigitisb.Value = listItemHelper.GetStringOrLookupValue("Εισηγητής Β (ΛΣ)");
+            hmerominiaekkathsinallagis.Value = listItemHelper.GetDateΤimeValue("Ημ/νία Εκκαθ. Συν/γής (ΛΣ)");
+            hmerominiakataxorisissinallagis.Value = listItemHelper.GetDateΤimeValue("Ημ/νία Καταχωρ. Συν/γής (ΛΣ)");
+            hmerominiaapostolisegkrisis.Value = listItemHelper.GetDateΤimeValue("Ημερομηνία αποστολής για τη λήψη έγκρισης (ΛΣ)");
+            hmerominiaapofasiseets.Value = listItemHelper.GetDateΤimeValue("Ημ/νία Απόφασης ΕΕΤΣ (ΛΣ)");
+            hmerominiaegkrisisyets.Value = listItemHelper.GetDateΤimeValue("Ημ/νία Εγκρίσεως ΥΕΤΣ (ΛΣ)");
+            hmerominiaegkrisismd.Value = listItemHelper.GetDateΤimeValue("Ημερομηνία Έγκρισης ΜΔ (ΛΣ)");
+            hmerominiaisotimias.Value = listItemHelper.GetStringOrLookupValue("Ημερομηνία Ισοτιμίας (ΛΣ)");
+            hmerominialipsisapofasiseets.Value = listItemHelper.GetDateΤimeValue("Ημ/νία λήψης απόφασης ΕΕΤΣ (ΛΣ)");
+            thetikieisisgisiproseets.Value = listItemHelper.GetStringOrLookupValue("Θετική Εισήγηση προς ΕΕΤΣ (ΛΣ)");
+            isotimia.Value = listItemHelper.GetDecimalOrDefaultValue("Ισοτιμία (ΛΣ)");
+            katigoriaproiontos.Value = listItemHelper.GetStringOrLookupValue("Κατηγορία προϊόντος (ΛΣ)");
+            leptomeriesaporripsis.Value = listItemHelper.GetStringOrLookupValue("Λεπτομέρειες Απόρριψης");
+            sxolioapofasiseets.Value = listItemHelper.GetStringOrLookupValue("Σχόλιο Απόφ. ΕΕΤΣ (ΛΣ)");
+            sxolioegkryets.Value = listItemHelper.GetStringOrLookupValue("Σχόλιο Εγκρ. ΥΕΤΣ (ΛΣ)");
+            sxoliosinallagis.Value = DBNull.Value;
+            tilepikoinonias.Value = listItemHelper.GetStringOrLookupValue("Τηλέφωνο επικοινωνίας (ΛΣ)");
+            aa.Value = listItemHelper.GetStringOrLookupValue("Α.Α. (ΛΣ)");
+            kataliktikihmerominiapliromis.Value = listItemHelper.GetDateΤimeValue("Καταληκτική Ημερομηνία προθεσμίας πληρωμής (ΛΣ)");
+            kodikosesek.Value = listItemHelper.GetStringOrLookupValue("Κωδικός ΕΣΕΚ (ΛΣ)");
+            eisigisisxoliakatastimatos.Value = listItemHelper.GetStringOrLookupValue("Εισήγηση - Σχόλια Καταστήματος (ΛΣ)");
+            eisigisimd.Value = listItemHelper.GetStringOrLookupValue("Εισήγηση Μονάδας Διαχείρισης (ΛΣ)");
+            aeislimitinfo.Value = listItemHelper.GetDecimalOrDefaultValue("fpAEIS_LimitInfo");
+            aeislimitinfomonth.Value = listItemHelper.GetDecimalOrDefaultValue("fpAEIS_LimitInfoMonth");
+            aeislimitinfoyear.Value = listItemHelper.GetDecimalOrDefaultValue("fpAEIS_LimitInfoYear");
+            dpxpusers.Value = listItemHelper.GetStringOrLookupValue("fpDPXPUsers");
+            epitropi.Value = listItemHelper.GetStringOrLookupValue("epitropiLS");
+            limitinfo.Value = listItemHelper.GetDecimalOrDefaultValue("fpLimitInfo");
+            limitinfomonth.Value = listItemHelper.GetDecimalOrDefaultValue("fpLimitInfoMonth");
+            limitinfoyear.Value = listItemHelper.GetDecimalOrDefaultValue("fpLimitInfoYear");
+            mdusers.Value = listItemHelper.GetStringOrLookupValue("fpMDUsers");
+            npyear.Value = listItemHelper.GetStringOrLookupValue("fpYear");
+            aitimatype.Value = ResolveFysikaAitimaType();
+            hmerominiaAxiologisis.Value = listItemHelper.GetDateΤimeValue("Ημερομηνία Αξιολόγησης (ΛΣ)");
+
+            string listUrl = ResolveUrl(web);
+            if (listItemHelper.GetStringOrLookupValue("Κωδικός Αιτήματος πελάτη (ΛΣ)") != null)
+            {
+                url.Value = listUrl + "/AllItemsls.aspx?FilterField1=fpKwdikosAitimatos&FilterValue1=" + Convert.ToString(listItemHelper.GetStringOrLookupValue("Κωδικός Αιτήματος πελάτη (ΛΣ)"));
+            }
+
+            command.CommandType = CommandType.Text;
+            command.Parameters.Add(id);
+            command.Parameters.Add(code);
+            command.Parameters.Add(katastima);
+            command.Parameters.Add(cdi);
+            command.Parameters.Add(afm);
+            command.Parameters.Add(nomismaparastatikou);
+            command.Parameters.Add(posoparastatikou);
+            command.Parameters.Add(isotimoeuro);
+            command.Parameters.Add(nomismaekathsinalagis);
+            command.Parameters.Add(posoekathsinallagis);
+            command.Parameters.Add(posoekathsinallagiseuro);
+            command.Parameters.Add(hmerominiaypovolis);
+            command.Parameters.Add(customer);
+            command.Parameters.Add(statusdpxp);
+            command.Parameters.Add(statusmd);
+            command.Parameters.Add(statusypovolis);
+            command.Parameters.Add(title);
+            command.Parameters.Add(aitiologiasinallagis);
+            command.Parameters.Add(dikaiouxos);
+            command.Parameters.Add(eidosentolea);
+            command.Parameters.Add(edossinallagis);
+            command.Parameters.Add(monadadiax);
+            command.Parameters.Add(xoraproorismoukefaleon);
+            command.Parameters.Add(created);
+            command.Parameters.Add(createdby);
+            command.Parameters.Add(modified);
+            command.Parameters.Add(modifiedby);
+            command.Parameters.Add(sent2tee);
+            command.Parameters.Add(typos);
+            command.Parameters.Add(statuseets);
+            command.Parameters.Add(tun);
+            command.Parameters.Add(minas);
+            command.Parameters.Add(aitoumenoidrima);
+            command.Parameters.Add(arprotegkriseosyets);
+            command.Parameters.Add(arprotapofasiseets);
+            command.Parameters.Add(egkrithenposoeets);
+            command.Parameters.Add(eidosproiontos);
+            command.Parameters.Add(eisigitisa);
+            command.Parameters.Add(eisigitisb);
+            command.Parameters.Add(hmerominiaekkathsinallagis);
+            command.Parameters.Add(hmerominiakataxorisissinallagis);
+            command.Parameters.Add(hmerominiaapostolisegkrisis);
+            command.Parameters.Add(hmerominiaapofasiseets);
+            command.Parameters.Add(hmerominiaegkrisisyets);
+            command.Parameters.Add(hmerominiaegkrisismd);
+            command.Parameters.Add(hmerominiaisotimias);
+            command.Parameters.Add(hmerominialipsisapofasiseets);
+            command.Parameters.Add(thetikieisisgisiproseets);
+            command.Parameters.Add(isotimia);
+            command.Parameters.Add(katigoriaproiontos);
+            command.Parameters.Add(leptomeriesaporripsis);
+            command.Parameters.Add(sxolioapofasiseets);
+            command.Parameters.Add(sxolioegkryets);
+            command.Parameters.Add(sxoliosinallagis);
+            command.Parameters.Add(tilepikoinonias);
+            command.Parameters.Add(aa);
+            command.Parameters.Add(kataliktikihmerominiapliromis);
+            command.Parameters.Add(kodikosesek);
+            command.Parameters.Add(eisigisisxoliakatastimatos);
+            command.Parameters.Add(eisigisimd);
+            command.Parameters.Add(aeislimitinfo);
+            command.Parameters.Add(aeislimitinfomonth);
+            command.Parameters.Add(aeislimitinfoyear);
+            command.Parameters.Add(dpxpusers);
+            command.Parameters.Add(epitropi);
+            command.Parameters.Add(limitinfo);
+            command.Parameters.Add(limitinfomonth);
+            command.Parameters.Add(limitinfoyear);
+            command.Parameters.Add(mdusers);
+            command.Parameters.Add(npyear);
+            command.Parameters.Add(aitimatype);
+            command.Parameters.Add(hmerominiaAxiologisis);
+            command.Parameters.Add(url);
+        }
+
+        public void InsertSQLAitima()
+        {
+            string connectionString = ResolveSQLConnectionString();
+
+            using (SqlConnection conn = new SqlConnection(connectionString))
+            {
+                string commandText = NomikoItem() ? ReportCommand.InsertNomikaText : ReportCommand.InsertFysikaText;
+
+                conn.Open();
+                using (SqlCommand command = new SqlCommand(commandText, conn))
+                {
+                    if (NomikoItem()) 
+                        CreateNomikaParameters(command);
+                    else
+                        CreateFysikaParameters(command);
+
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
+
+        public void UpdateSQLAitima()
+        {
+            string connectionString = ResolveSQLConnectionString();
+
+            using (SqlConnection conn = new SqlConnection(connectionString))
+            {
+                string commandText = NomikoItem() ? ReportCommand.UpdateNomikaText : ReportCommand.UpdateFysikaText;
+
+                conn.Open();
+                using (SqlCommand command = new SqlCommand(commandText, conn))
+                {
+                    if (NomikoItem())
+                        CreateNomikaParameters(command);
+                    else
+                        CreateFysikaParameters(command);
+
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
+
+        public void DeleteSQLAitima()
+        {
+            string connectionString = ResolveSQLConnectionString();
+
+            using (SqlConnection conn = new SqlConnection(connectionString))
+            {
+                conn.Open();
+                using (SqlCommand command = new SqlCommand("DELETE from [Aitimata] where [SPID] = @SPID", conn))
+                {
+                    var id = new SqlParameter("@SPID", SqlDbType.Int);
+                    id.Value = Convert.ToInt32(listItem.ID);
+
+                    command.Parameters.Add(id);
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
+
+        public void InsertSQLHistory(HistoryAction action)
+        {
+            string connectionString = ResolveSQLConnectionString();
+
+            using (SqlConnection conn = new SqlConnection(connectionString))
+            {
+                conn.Open();
+
+                //TODO: define all data we need to insert...
+                string cmdText = ReportCommand.InsertHistoryText;
+
+                using (SqlCommand command = new SqlCommand(cmdText, conn))
+                {
+                    var id = new SqlParameter("@SPID", SqlDbType.Int);
+                    var dbaction = new SqlParameter("@Action", SqlDbType.TinyInt);
+
+                    id.Value = listItem.ID;
+                    dbaction.Value = (int)action;
+
+                    command.CommandType = CommandType.Text;
+                    command.Parameters.Add(id);
+                    command.Parameters.Add(dbaction);
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
+
+        int ResolveFysikaAitimaType()
+        {
+            if (listItem["Είδος Πελάτη/Εντολέα (ΛΣ)"] != null)
+            {
+                ListItemHelper listItemHelper = new ListItemHelper(listItem);
+                //ΝΟΜΙΚΟ ΠΡΟΣΩΠΟ, Νομικό Πρόσωπο
+                string eidosEntolea = listItemHelper.GetStringOrLookupValue("Είδος Πελάτη/Εντολέα (ΛΣ)").ToString();
+                if (eidosEntolea.Equals("ΝΟΜΙΚΟ ΠΡΟΣΩΠΟ", StringComparison.InvariantCultureIgnoreCase))
+                    return (int)AitimaType.FYSIKA_ME_EIDOS_ENTOLEA_NOMIKO;
+            }
+
+            return (int)AitimaType.FYSIKA;
+        }
+
+        public bool ItemInDBexists(string spid)
+        {
+            int rowsAffected = 0;
+
+            string connectionString = ResolveSQLConnectionString();
+
+            using (SqlConnection conn = new SqlConnection(connectionString))
+            {
+                string commandText = "UPDATE [Aitimata] SET [SxolioSinallagis] = 'SyncProcess' WHERE [SPID] = @SPID";
+
+                conn.Open();
+                using (SqlCommand command = new SqlCommand(commandText, conn))
+                {
+                    var id = new SqlParameter("@SPID", SqlDbType.Int);
+                    id.Value = Convert.ToInt32(spid);
+
+                    command.Parameters.Add(id);
+
+                    rowsAffected = command.ExecuteNonQuery();
+                }
+            }
+
+            return rowsAffected != 0;
+        }
+
+        public bool NomikoItem()
+        {
+            if (listItem == null)
+                throw new ApplicationException("Item cannot be null");
+
+            return listItem.ContentType.Name == "Αίτημα Συναλλαγής";
+        }
+
+        string ResolveUrl(SPWeb web)
+        {
+            if (string.IsNullOrWhiteSpace(web.Url))
+                throw new ApplicationException("Unable to resolve url");
+
+            return web.Url + "/Lists/timologia";
+        }
+
+        public string ResolveSQLConnectionString()
+        {
+            if (string.IsNullOrWhiteSpace(web.Url))
+                throw new ApplicationException("Unable to resolve url");
+
+            if (web.Url.ToLower().Contains("dev") || web.Url.ToLower().Contains("test"))
+                return "XXXXX";
+            else
+                return "XXXXX";
+        }
+
+
+    }
+}
