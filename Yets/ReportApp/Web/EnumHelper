@@ -1,0 +1,46 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
+using System.Reflection;
+using System.Web;
+
+namespace ReportApplication
+{
+    public static class EnumHelper
+    {
+        public static string GetDescription(Enum value)
+        {
+            string description = value.ToString();
+
+            FieldInfo fi = value.GetType().GetField(description);
+            if (fi != null)
+            {
+                DescriptionAttribute[] attributes = (DescriptionAttribute[])fi.GetCustomAttributes(typeof(DescriptionAttribute), false);
+                if (attributes != null && attributes.Length > 0)
+                {
+                    description = attributes[0].Description;
+                }
+            }
+
+            return description;
+        }
+
+        public static string GetReportPage(Enum value)
+        {
+            string page = value.ToString();
+
+            FieldInfo fi = value.GetType().GetField(page);
+            if (fi != null)
+            {
+                ReportPageAttribute[] attributes = (ReportPageAttribute[])fi.GetCustomAttributes(typeof(ReportPageAttribute), false);
+                if (attributes != null && attributes.Length > 0)
+                {
+                    page = attributes[0].Page;
+                }
+            }
+
+            return page;
+        }
+    }
+}
