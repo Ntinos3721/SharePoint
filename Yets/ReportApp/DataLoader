@@ -1,0 +1,791 @@
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Microsoft.SharePoint;
+using System.Data.SqlClient;
+using System.Configuration;
+using ReportApplication.Common;
+using System.IO;
+using System.Data.OleDb;
+using System.Globalization;
+
+namespace ReportApplication.EOD
+{
+    class Program
+    {
+        static string logPath = string.Empty;
+
+        static void Main(string[] args)
+        {
+            try
+            {
+                string tempPath = ResolveTempPath();
+                logPath = string.Format("{0}\\ReportApplicationEOD-{1}.txt", tempPath, DateTime.Now.ToString("yyyyMMdd"));
+
+                WriteToLog("Process started");
+
+                TruncateAitimata();
+                InsertWithPaging();
+
+                WriteToLog("Process finished");
+            }
+            catch (Exception ex)
+            {
+                var errMsg = string.Format("Exception: {0}, StackTrace: {1}", ex.Message, ex.StackTrace);
+                if (ex.InnerException != null) errMsg = string.Format("Exception: {0}, Inner Exception: {1}, StackTrace: {2}", errMsg, ex.InnerException.Message, ex.InnerException.StackTrace);
+                WriteToLog(errMsg, true);
+            }
+
+            Console.ReadLine();
+        }
+
+        private static SPQuery CreateQuery(DateTime from, DateTime to)
+        {
+            //IncludeTimeValue='FALSE'
+            string start =  Microsoft.SharePoint.Utilities.SPUtility.CreateISO8601DateTimeFromSystemDateTime(from); //from.ToString("yyyy-MM-dd");
+            string end = Microsoft.SharePoint.Utilities.SPUtility.CreateISO8601DateTimeFromSystemDateTime(to);
+
+            SPQuery query = new SPQuery();
+            query.ViewXml = @"
+                            <View Scope=\'RecursiveAll\'>" +
+                            "<ViewFields>" +
+                                "<FieldRef Name='Title'/>" +
+                                "<FieldRef Name='Created'/>" +
+                                "<FieldRef Name='KodikosAitimatos'/>" +
+                            "</ViewFields>" +
+                            "<Query>" +
+                                "<Where>" + 
+                                  "<And>" +
+                                    "<Geq>" + 
+                                      "<FieldRef Name='Created' />" +
+                                      "<Value Type='DateTime'>" + start + "</Value>" +
+                                    "</Geq>" +
+                                    "<Lt>" +
+                                      "<FieldRef Name='Created' />" +
+                                      "<Value Type='DateTime'>" + end + "</Value>" +
+                                    "</Lt>" +
+                                  "</And>" +
+                                "</Where>" +
+                           "</Query>" +
+                        "</View>";
+
+            return query;
+        }
+        
+        private static void TruncateAitimata()
+        {
+            WriteToLog("Truncating aitimata...");
+
+            using (SqlConnection connection = new SqlConnection(GetConnectionString()))
+            {
+                string cmdText = "TRUNCATE TABLE [Aitimata]";
+
+                using (SqlCommand command = new SqlCommand(cmdText, connection))
+                {
+                    command.CommandType = System.Data.CommandType.Text;
+                    command.CommandTimeout = 1500;
+
+                    connection.Open();
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
+
+        /// <summary>
+        /// http://apmblog.dynatrace.com/2009/01/15/sharepoint-page-through-sharepoint-lists/
+        /// </summary>
+        private static void InsertWithPaging()
+        {
+            WriteToLog("Getting aitimata...");
+            DataTable dt;
+            //TODO: add columns names as sql table columns.
+            CreateDataTable(out dt);
+
+            string siteURL = ConfigurationManager.AppSettings["SiteURL"].ToString();
+            if (string.IsNullOrWhiteSpace(siteURL))
+                throw new ConfigurationErrorsException("SiteURL key is missing");
+
+            using (SPSite site = new SPSite(siteURL))
+            {
+                using (SPWeb web = site.OpenWeb()) //returns the site associated with URL 
+                {
+                    SPList list = web.Lists["AITHMATA"];
+
+                    SPQuery query = new SPQuery();
+                    query.RowLimit = 500; // that is our page size
+                    query.ViewAttributes = "Scope=\"Recursive\"";
+                    query.ViewFields = SetViewFields(list); 
+
+                    do
+                    {
+                        SPListItemCollection items = list.GetItems(query);
+                        // do something with the page result
+                        foreach (SPListItem item in items)
+                        {
+                            //TODO: add columns names as sql table columns.
+                            DataRow dr = CreateDataRow(item, dt, web);
+                            if (dr != null) dt.Rows.Add(dr);
+                        }
+
+                        WriteToLog("Inserting aitimata...");
+
+                        string cmdText = @"INSERT INTO Aitimata 
+                                                    VALUES (
+                                                        @SPID,
+                                                        @Code,
+                                                        @Katastima,
+                                                        @Cdi,
+                                                        @Afm,
+                                                        @NomismaParastatikou,
+                                                        @PosoParastatikou,
+                                                        @SinolikiEtisiaAxia,
+                                                        @MegistiMinieaAxiaMetaforon,
+                                                        @IsotimoEuro,
+                                                        @SinolikiAxiaTrexonMinas,
+                                                        @HmerisioOrio,
+                                                        @NomismaEkathSinalagis,
+                                                        @PosoEkathSinallagis,
+                                                        @PosoEkathSinallagisEuro,
+                                                        @HmerominiaYpovolis,
+                                                        @Customer,
+                                                        @statusDPXP,
+                                                        @statusMD,
+                                                        @StatusYpovolis,
+                                                        @Title,
+                                                        @AitiologiaSinallagis,
+                                                        @ArithmosParastatikou,
+                                                        @Dikaiouxos,
+                                                        @EidosEntolea,
+                                                        @EdosSinallagis,
+                                                        @MonadaDiax,
+                                                        @limit,
+                                                        @XoraProorismouKefaleon,
+                                                        @Created,
+                                                        @CreatedBy,
+                                                        @Modified,
+                                                        @ModifiedBy,
+                                                        @sent2TEE,
+                                                        @typos,
+                                                        @statusEETS,
+                                                        @TUN,
+                                                        @Minas,
+                                                        @statusMonadaEkkatharisis,
+                                                        @AitiologiYpovolisAitimatosProsEETS,
+                                                        @AitoumenoIdrima,
+                                                        @ArProtEgkriseosYETS,
+                                                        @ArFakelouBT,
+                                                        @ArProtApofasisEETS,
+                                                        @DiaxeiristisKY,
+                                                        @EgkrithenPosoEETS,
+                                                        @EgkrisiEETS,
+                                                        @EgkrisiYETS,
+                                                        @EidosParastatikou,
+                                                        @EidosProiontos,
+                                                        @EisigitisA,
+                                                        @EisigitisB,
+                                                        @HmerominiaEkkathSinallagis,
+                                                        @HmerominiaKataxorisisSinallagis,
+                                                        @HmerominiaApostolisEgkrisis,
+                                                        @HmerominiaApofasisEETS,
+                                                        @HmerominiaEgkrisisYETS,
+                                                        @HmerominiaEgkrisisMD,
+                                                        @HmerominiaIsotimias,
+                                                        @HmerominiaLiksisTimologiou,
+                                                        @HmerominiaLipsisApofasisEETS,
+                                                        @HmerominiaParadosisProiontos,
+                                                        @HmerominiaParastatikou,
+                                                        @ThetikiEisisgisiProsEETS,
+                                                        @Isotimia,
+                                                        @KatigoriaProiontos,
+                                                        @KodikosAEIS,
+                                                        @LeptomeriesAporripsis,
+                                                        @OrosPliromis,
+                                                        @SinolikoPoso,
+                                                        @SxoliaPliromis,
+                                                        @SxolioApofasisEETS,
+                                                        @SxolioEgkrYETS,
+                                                        @SxolioEisigisis,
+                                                        @SxolioSinallagis,
+                                                        @TilEpikoinonias,
+                                                        @Fek,
+                                                        @AA,
+                                                        @KataliktikiHmerominiaPliromis,
+                                                        @KodikosESEK,
+                                                        @EisigisiSxoliaKatastimatos,
+                                                        @EisigisiMD,
+                                                        @AEISLimitInfo,
+                                                        @AEISLimitInfoMonth,
+                                                        @AEISLimitInfoYear,
+                                                        @DPXPUsers,
+                                                        @epitropi,
+                                                        @GroupAitimatos,
+                                                        @LimitInfo,
+                                                        @LimitInfoMonth,
+                                                        @LimitInfoYear,
+                                                        @MDUsers,
+                                                        @MyPath,
+                                                        @npYear,
+                                                        @AitimaType,
+                                                        @ProsKataxorisiKY,
+                                                        @HmerominiaAxiologisis,
+                                                        @Url
+                                                    )";
+
+                        using (SqlConnection connection = new SqlConnection(GetConnectionString()))
+                        {
+                            using (SqlCommand command = new SqlCommand(cmdText, connection))
+                            {
+                                command.CommandType = System.Data.CommandType.Text;
+                                command.CommandTimeout = 1500;
+                                command.UpdatedRowSource = UpdateRowSource.None;
+
+                                //TODO: add parameters
+                                command.Parameters.Add("@SPID", SqlDbType.Int, 10, dt.Columns["SPID"].ColumnName);
+                                command.Parameters.Add("@Code", SqlDbType.NVarChar, 300, dt.Columns["Code"].ColumnName);
+                                command.Parameters.Add("@Katastima", SqlDbType.NVarChar, 300, dt.Columns["Katastima"].ColumnName);
+                                command.Parameters.Add("@Cdi", SqlDbType.NVarChar, 300, dt.Columns["Cdi"].ColumnName);
+                                command.Parameters.Add("@Afm", SqlDbType.NVarChar, 300, dt.Columns["Afm"].ColumnName);
+                                command.Parameters.Add("@NomismaParastatikou", SqlDbType.NVarChar, 300, dt.Columns["NomismaParastatikou"].ColumnName);
+                                command.Parameters.Add("@PosoParastatikou", SqlDbType.Decimal, 300, dt.Columns["PosoParastatikou"].ColumnName);
+                                command.Parameters.Add("@SinolikiEtisiaAxia", SqlDbType.Decimal, 300, dt.Columns["SinolikiEtisiaAxia"].ColumnName);
+                                command.Parameters.Add("@MegistiMinieaAxiaMetaforon", SqlDbType.Decimal, 300, dt.Columns["MegistiMinieaAxiaMetaforon"].ColumnName);
+                                command.Parameters.Add("@IsotimoEuro", SqlDbType.Decimal, 300, dt.Columns["IsotimoEuro"].ColumnName);
+                                command.Parameters.Add("@SinolikiAxiaTrexonMinas", SqlDbType.Decimal, 300, dt.Columns["SinolikiAxiaTrexonMinas"].ColumnName);
+                                command.Parameters.Add("@HmerisioOrio", SqlDbType.Decimal, 300, dt.Columns["HmerisioOrio"].ColumnName);
+                                command.Parameters.Add("@NomismaEkathSinalagis", SqlDbType.NVarChar, 300, dt.Columns["NomismaEkathSinalagis"].ColumnName);
+                                command.Parameters.Add("@PosoEkathSinallagis", SqlDbType.Decimal, 300, dt.Columns["PosoEkathSinallagis"].ColumnName);
+                                command.Parameters.Add("@PosoEkathSinallagisEuro", SqlDbType.Decimal, 300, dt.Columns["PosoEkathSinallagisEuro"].ColumnName);
+                                command.Parameters.Add("@HmerominiaYpovolis", SqlDbType.DateTime, 50, dt.Columns["HmerominiaYpovolis"].ColumnName);
+                                command.Parameters.Add("@Customer", SqlDbType.NVarChar, 300, dt.Columns["Customer"].ColumnName);
+                                command.Parameters.Add("@statusDPXP", SqlDbType.NVarChar, 300, dt.Columns["statusDPXP"].ColumnName);
+                                command.Parameters.Add("@statusMD", SqlDbType.NVarChar, 300, dt.Columns["statusMD"].ColumnName);
+                                command.Parameters.Add("@StatusYpovolis", SqlDbType.NVarChar, 300, dt.Columns["StatusYpovolis"].ColumnName);
+                                command.Parameters.Add("@Title", SqlDbType.NVarChar, 300, dt.Columns["Title"].ColumnName);
+                                command.Parameters.Add("@AitiologiaSinallagis", SqlDbType.NText, 1000, dt.Columns["AitiologiaSinallagis"].ColumnName);
+                                command.Parameters.Add("@ArithmosParastatikou", SqlDbType.NVarChar, 300, dt.Columns["ArithmosParastatikou"].ColumnName);
+                                command.Parameters.Add("@Dikaiouxos", SqlDbType.NVarChar, 300, dt.Columns["Dikaiouxos"].ColumnName);
+                                command.Parameters.Add("@EidosEntolea", SqlDbType.NVarChar, 300, dt.Columns["EidosEntolea"].ColumnName);
+                                command.Parameters.Add("@EdosSinallagis", SqlDbType.NVarChar, 300, dt.Columns["EdosSinallagis"].ColumnName);
+                                command.Parameters.Add("@MonadaDiax", SqlDbType.NVarChar, 300, dt.Columns["MonadaDiax"].ColumnName);
+                                command.Parameters.Add("@limit", SqlDbType.Decimal, 300, dt.Columns["limit"].ColumnName);
+                                command.Parameters.Add("@XoraProorismouKefaleon", SqlDbType.NVarChar, 300, dt.Columns["XoraProorismouKefaleon"].ColumnName);
+                                command.Parameters.Add("@Created", SqlDbType.DateTime, 50, dt.Columns["Created"].ColumnName);
+                                command.Parameters.Add("@CreatedBy", SqlDbType.NVarChar, 300, dt.Columns["CreatedBy"].ColumnName);
+                                command.Parameters.Add("@Modified", SqlDbType.DateTime, 50, dt.Columns["Modified"].ColumnName);
+                                command.Parameters.Add("@ModifiedBy", SqlDbType.NVarChar, 300, dt.Columns["ModifiedBy"].ColumnName);
+                                command.Parameters.Add("@sent2TEE", SqlDbType.NVarChar, 300, dt.Columns["sent2TEE"].ColumnName);
+                                command.Parameters.Add("@typos", SqlDbType.NVarChar, 300, dt.Columns["typos"].ColumnName);
+                                command.Parameters.Add("@statusEETS", SqlDbType.NVarChar, 300, dt.Columns["statusEETS"].ColumnName);
+                                command.Parameters.Add("@TUN", SqlDbType.NVarChar, 300, dt.Columns["TUN"].ColumnName);
+                                command.Parameters.Add("@Minas", SqlDbType.NVarChar, 300, dt.Columns["Minas"].ColumnName);
+                                command.Parameters.Add("@statusMonadaEkkatharisis", SqlDbType.NVarChar, 300, dt.Columns["statusMonadaEkkatharisis"].ColumnName);
+                                command.Parameters.Add("@AitiologiYpovolisAitimatosProsEETS", SqlDbType.NVarChar, 300, dt.Columns["AitiologiYpovolisAitimatosProsEETS"].ColumnName);
+                                command.Parameters.Add("@AitoumenoIdrima", SqlDbType.NVarChar, 300, dt.Columns["AitoumenoIdrima"].ColumnName);
+                                command.Parameters.Add("@ArProtEgkriseosYETS", SqlDbType.NVarChar, 300, dt.Columns["ArProtEgkriseosYETS"].ColumnName);
+                                command.Parameters.Add("@ArFakelouBT", SqlDbType.NVarChar, 300, dt.Columns["ArFakelouBT"].ColumnName);
+                                command.Parameters.Add("@ArProtApofasisEETS", SqlDbType.NVarChar, 300, dt.Columns["ArProtApofasisEETS"].ColumnName);
+                                command.Parameters.Add("@DiaxeiristisKY", SqlDbType.NVarChar, 300, dt.Columns["DiaxeiristisKY"].ColumnName);
+                                command.Parameters.Add("@EgkrithenPosoEETS", SqlDbType.NVarChar, 300, dt.Columns["EgkrithenPosoEETS"].ColumnName);
+                                command.Parameters.Add("@EgkrisiEETS", SqlDbType.NVarChar, 300, dt.Columns["EgkrisiEETS"].ColumnName);
+                                command.Parameters.Add("@EgkrisiYETS", SqlDbType.NVarChar, 300, dt.Columns["EgkrisiYETS"].ColumnName);
+                                command.Parameters.Add("@EidosParastatikou", SqlDbType.NVarChar, 300, dt.Columns["EidosParastatikou"].ColumnName);
+                                command.Parameters.Add("@EidosProiontos", SqlDbType.NVarChar, 300, dt.Columns["EidosProiontos"].ColumnName);
+                                command.Parameters.Add("@EisigitisA", SqlDbType.NVarChar, 300, dt.Columns["EisigitisA"].ColumnName);
+                                command.Parameters.Add("@EisigitisB", SqlDbType.NVarChar, 300, dt.Columns["EisigitisB"].ColumnName);
+                                command.Parameters.Add("@HmerominiaEkkathSinallagis", SqlDbType.DateTime, 50, dt.Columns["HmerominiaEkkathSinallagis"].ColumnName);
+                                command.Parameters.Add("@HmerominiaKataxorisisSinallagis", SqlDbType.DateTime, 50, dt.Columns["HmerominiaKataxorisisSinallagis"].ColumnName);
+                                command.Parameters.Add("@HmerominiaApostolisEgkrisis", SqlDbType.DateTime, 50, dt.Columns["HmerominiaApostolisEgkrisis"].ColumnName);
+                                command.Parameters.Add("@HmerominiaApofasisEETS", SqlDbType.DateTime, 50, dt.Columns["HmerominiaApofasisEETS"].ColumnName);
+                                command.Parameters.Add("@HmerominiaEgkrisisYETS", SqlDbType.DateTime, 50, dt.Columns["HmerominiaEgkrisisYETS"].ColumnName);
+                                command.Parameters.Add("@HmerominiaEgkrisisMD", SqlDbType.DateTime, 50, dt.Columns["HmerominiaEgkrisisMD"].ColumnName);
+                                command.Parameters.Add("@HmerominiaIsotimias", SqlDbType.NVarChar, 300, dt.Columns["HmerominiaIsotimias"].ColumnName);
+                                command.Parameters.Add("@HmerominiaLiksisTimologiou", SqlDbType.DateTime, 50, dt.Columns["HmerominiaLiksisTimologiou"].ColumnName);
+                                command.Parameters.Add("@HmerominiaLipsisApofasisEETS", SqlDbType.DateTime, 50, dt.Columns["HmerominiaLipsisApofasisEETS"].ColumnName);
+                                command.Parameters.Add("@HmerominiaParadosisProiontos", SqlDbType.DateTime, 50, dt.Columns["HmerominiaParadosisProiontos"].ColumnName);
+                                command.Parameters.Add("@HmerominiaParastatikou", SqlDbType.DateTime, 50, dt.Columns["HmerominiaParastatikou"].ColumnName);
+                                command.Parameters.Add("@ThetikiEisisgisiProsEETS", SqlDbType.Bit, 1, dt.Columns["ThetikiEisisgisiProsEETS"].ColumnName);
+                                command.Parameters.Add("@Isotimia", SqlDbType.Decimal, 300, dt.Columns["Isotimia"].ColumnName);
+                                command.Parameters.Add("@KatigoriaProiontos", SqlDbType.NVarChar, 300, dt.Columns["KatigoriaProiontos"].ColumnName);
+                                command.Parameters.Add("@KodikosAEIS", SqlDbType.NVarChar, 300, dt.Columns["KodikosAEIS"].ColumnName);
+                                command.Parameters.Add("@LeptomeriesAporripsis", SqlDbType.NText, 1000, dt.Columns["LeptomeriesAporripsis"].ColumnName);
+                                command.Parameters.Add("@OrosPliromis", SqlDbType.NVarChar, 300, dt.Columns["OrosPliromis"].ColumnName);
+                                command.Parameters.Add("@SinolikoPoso", SqlDbType.Decimal, 300, dt.Columns["SinolikoPoso"].ColumnName);
+                                command.Parameters.Add("@SxoliaPliromis", SqlDbType.NText, 1000, dt.Columns["SxoliaPliromis"].ColumnName);
+                                command.Parameters.Add("@SxolioApofasisEETS", SqlDbType.NText, 1000, dt.Columns["SxolioApofasisEETS"].ColumnName);
+                                command.Parameters.Add("@SxolioEgkrYETS", SqlDbType.NText, 1000, dt.Columns["SxolioEgkrYETS"].ColumnName);
+                                command.Parameters.Add("@SxolioEisigisis", SqlDbType.NText, 1000, dt.Columns["SxolioEisigisis"].ColumnName);
+                                command.Parameters.Add("@SxolioSinallagis", SqlDbType.NText, 1000, dt.Columns["SxolioSinallagis"].ColumnName);
+                                command.Parameters.Add("@TilEpikoinonias", SqlDbType.NVarChar, 300, dt.Columns["TilEpikoinonias"].ColumnName);
+                                command.Parameters.Add("@Fek", SqlDbType.NVarChar, 300, dt.Columns["Fek"].ColumnName);
+                                // command.Parameters.Add("@FekOld", SqlDbType.NVarChar, 300, dt.Columns["FekOld"].ColumnName);
+                                command.Parameters.Add("@AA", SqlDbType.Int, 300, dt.Columns["AA"].ColumnName);
+                                command.Parameters.Add("@KataliktikiHmerominiaPliromis", SqlDbType.DateTime, 50, dt.Columns["KataliktikiHmerominiaPliromis"].ColumnName);
+                                command.Parameters.Add("@KodikosESEK", SqlDbType.NVarChar, 300, dt.Columns["KodikosESEK"].ColumnName);
+                                command.Parameters.Add("@EisigisiSxoliaKatastimatos", SqlDbType.NText, 1000, dt.Columns["EisigisiSxoliaKatastimatos"].ColumnName);
+                                command.Parameters.Add("@EisigisiMD", SqlDbType.NVarChar, 300, dt.Columns["EisigisiMD"].ColumnName);
+                                command.Parameters.Add("@AEISLimitInfo", SqlDbType.Decimal, 300, dt.Columns["AEISLimitInfo"].ColumnName);
+                                command.Parameters.Add("@AEISLimitInfoMonth", SqlDbType.Decimal, 300, dt.Columns["AEISLimitInfoMonth"].ColumnName);
+                                command.Parameters.Add("@AEISLimitInfoYear", SqlDbType.Decimal, 300, dt.Columns["AEISLimitInfoYear"].ColumnName);
+                                command.Parameters.Add("@DPXPUsers", SqlDbType.NText, 1000, dt.Columns["DPXPUsers"].ColumnName);
+                                command.Parameters.Add("@epitropi", SqlDbType.NVarChar, 300, dt.Columns["epitropi"].ColumnName);
+                                command.Parameters.Add("@GroupAitimatos", SqlDbType.NVarChar, 300, dt.Columns["GroupAitimatos"].ColumnName);
+                                command.Parameters.Add("@LimitInfo", SqlDbType.Decimal, 300, dt.Columns["LimitInfo"].ColumnName);
+                                command.Parameters.Add("@LimitInfoMonth", SqlDbType.Decimal, 300, dt.Columns["LimitInfoMonth"].ColumnName);
+                                command.Parameters.Add("@LimitInfoYear", SqlDbType.Decimal, 300, dt.Columns["LimitInfoYear"].ColumnName);
+                                command.Parameters.Add("@MDUsers", SqlDbType.NText, 1000, dt.Columns["MDUsers"].ColumnName);
+                                command.Parameters.Add("@MyPath", SqlDbType.NVarChar, 300, dt.Columns["MyPath"].ColumnName);
+                                command.Parameters.Add("@npYear", SqlDbType.NVarChar, 300, dt.Columns["npYear"].ColumnName);
+                                command.Parameters.Add("@AitimaType", SqlDbType.Int, 5, dt.Columns["AitimaType"].ColumnName);
+                                command.Parameters.Add("@ProsKataxorisiKY", SqlDbType.NVarChar, 300, dt.Columns["ProsKataxorisiKY"].ColumnName);
+                                command.Parameters.Add("@HmerominiaAxiologisis", SqlDbType.DateTime, 50, dt.Columns["HmerominiaAxiologisis"].ColumnName);
+                                command.Parameters.Add("@Url", SqlDbType.NVarChar, 500, dt.Columns["Url"].ColumnName);
+
+                                SqlDataAdapter adpt = new SqlDataAdapter();
+                                adpt.InsertCommand = command;
+                                // Specify the number of records to be Inserted/Updated in one go. Default is 1.
+                                adpt.UpdateBatchSize = 10;
+                                adpt.RowUpdated += adpt_RowUpdated;
+
+                                connection.Open();
+                                int recordsInserted = adpt.Update(dt);
+
+                                adpt.RowUpdated -= adpt_RowUpdated;
+                                WriteToLog(string.Format("Records inserted: {0}", recordsInserted));
+                            }
+                        }
+
+                        // set the position cursor for the next iteration
+                        query.ListItemCollectionPosition = items.ListItemCollectionPosition;
+                    }
+                    while (query.ListItemCollectionPosition != null);
+                }
+            }
+
+           
+        }
+
+        /// <summary>
+        /// http://sharepoint.stackexchange.com/questions/37224/spquery-for-selecting-excluding-hidden-columns-from-a-splist
+        /// </summary>
+        /// <param name="list"></param>
+        /// <returns></returns>
+        static string SetViewFields(SPList list)
+        {
+            var listFields = list.Fields;
+            string tmpField = "<FieldRef Name='{0}'/>";
+
+            string viewFields = string.Empty;
+            foreach (SPField field in listFields)
+            {
+                if (field.InternalName != "Attachments")
+                    viewFields += string.Format(tmpField, field.InternalName);
+            }
+
+            return viewFields;
+        }
+
+
+
+        private static void DisposeDataTable(DataTable dt)
+        {
+            dt.Dispose();
+            dt = null;
+        }
+
+        static void adpt_RowUpdated(object sender, SqlRowUpdatedEventArgs e)
+        {
+            if (e.StatementType == StatementType.Batch && e.Errors != null)
+            {
+                string message = string.Format("SPID: {0}, Message: {1}", e.Row["SPID"].ToString(), e.Errors.Message);
+                WriteToLog(message, true);
+            }
+        }
+
+        private static DataRow CreateDataRow(SPListItem item, DataTable dt, SPWeb web)
+        {
+            DataRow dr = dt.NewRow();
+
+            try
+            {
+                object kwdikosAitimatos = NomikaItem(item) ? GetItemOrNullValue(item, "Κωδικός Αιτήματος") : GetItemOrNullValue(item, "Κωδικός Αιτήματος πελάτη (ΛΣ)");
+                string katastima = NomikaItem(item) ? GetStringOrLookUpValue(item, "Κωδικός Καταστήματος") : GetStringOrLookUpValue(item, "Κωδικός Καταστήματος-Δ/νσης (ΛΣ)"); 
+
+                dr["SPID"] = item["ID"];
+                dr["Code"] = kwdikosAitimatos;
+                dr["Katastima"] = katastima;
+                dr["Cdi"] = NomikaItem(item) ? GetItemOrNullValue(item, "CDI Πελάτη") : GetItemOrNullValue(item, "CDI (ΛΣ)");
+                dr["Afm"] = NomikaItem(item) ? GetItemOrNullValue(item, "ΑΦΜ") : GetItemOrNullValue(item, "ΑΦΜ Πελάτη (ΛΣ)");
+                dr["NomismaParastatikou"] = NomikaItem(item) ? GetItemOrNullValue(item, "Νόμισμα") : GetStringOrLookUpValue(item, "Νόμισμα Τιμολογίου/ Παραστατικού (ΛΣ)");
+                //dr["PosoParastatikou"] = NomikaItem(item) ? item["Ποσό Παραστατικού"] : item["Ποσό Παραστατικού πελάτη (ΛΣ)"];
+                dr["PosoParastatikou"] = NomikaItem(item) ? GetDecimalOrDefaultValue(item, "Ποσό Παραστατικού") : GetDecimalOrDefaultValue(item, "Ποσό Παραστατικού πελάτη (ΛΣ)");
+                //dr["SinolikiEtisiaAxia"] = NomikaItem(item) ? item["Συνολική Ετήσια Αξία"] : null;
+                dr["SinolikiEtisiaAxia"] = NomikaItem(item) ? GetDecimalOrDefaultValue(item, "Συνολική Ετήσια Αξία") : null;
+                dr["MegistiMinieaAxiaMetaforon"] = NomikaItem(item) ? GetDecimalOrDefaultValue(item, "Μέγιστη Μηνιαία Αξία Μεταφορών Κεφαλαίου στο Εξωτερικό") : null;
+                //dr["IsotimoEuro"] = NomikaItem(item) ? item["Ισότιμο σε ΕΥΡΩ"] : item["Ισότιμο σε EUR (ΛΣ)"];
+                dr["IsotimoEuro"] = NomikaItem(item) ? GetDecimalOrDefaultValue(item, "Ισότιμο σε ΕΥΡΩ") : GetDecimalOrDefaultValue(item, "Ισότιμο σε EUR (ΛΣ)");
+                //dr["SinolikiAxiaTrexonMinas"] = NomikaItem(item) ? item["Συνολική Αξία Συναλλαγών για τον τρέχοντα μήνα"] : null;
+                dr["SinolikiAxiaTrexonMinas"] = NomikaItem(item) ? GetDecimalOrDefaultValue(item, "Συνολική Αξία Συναλλαγών για τον τρέχοντα μήνα") : null;
+                dr["HmerisioOrio"] = NomikaItem(item) ? GetDecimalOrDefaultValue(item, "Ημερήσιο Όριο") : null;
+                dr["NomismaEkathSinalagis"] = NomikaItem(item) ? GetItemOrNullValue(item, "Νόμισμα Εκκαθ. Συν/γής") : GetStringOrLookUpValue(item, "Νόμισμα Εκκαθ. Συν/γής (ΛΣ)");
+                //dr["PosoEkathSinallagis"] = NomikaItem(item) ? item["Ποσό Εκκαθάρισης Συναλλαγής"] : item["Ποσό Εκκαθ. Συν/γής (ΛΣ)"];
+                dr["PosoEkathSinallagis"] = NomikaItem(item) ? GetDecimalOrDefaultValue(item, "Ποσό Εκκαθάρισης Συναλλαγής") : GetDecimalOrDefaultValue(item, "Ποσό Εκκαθ. Συν/γής (ΛΣ)");
+                //dr["PosoEkathSinallagisEuro"] = NomikaItem(item) ? item["Ποσό Εκκαθ. Συναλλαγής ΕΥΡΩ"] : item["Ποσό Εκκαθ. Συν/γής ΕΥΡΩ (ΛΣ)"];
+                dr["PosoEkathSinallagisEuro"] = NomikaItem(item) ? GetDecimalOrDefaultValue(item, "Ποσό Εκκαθ. Συναλλαγής ΕΥΡΩ") : GetDecimalOrDefaultValue(item, "Ποσό Εκκαθ. Συν/γής ΕΥΡΩ");
+                dr["HmerominiaYpovolis"] = NomikaItem(item) ? GetItemOrNullValue(item, "Ημερομηνία υποβολής αιτήματος από τον Πελάτη") : GetItemOrNullValue(item, "Ημ/νία υποβολής αιτήματος από τον Πελάτη (ΛΣ)");
+                dr["Customer"] = NomikaItem(item) ? GetItemOrNullValue(item, "Πελάτης/Εντολέας") : GetItemOrNullValue(item, "Πελάτης-Εντολέας (ΛΣ)");
+                dr["statusDPXP"] = NomikaItem(item) ? GetItemOrNullValue(item, "status ΔΠΧΠ") : GetStringOrLookUpValue(item, "Status ΔΠΧΠ (ΛΣ)");
+                dr["statusMD"] = NomikaItem(item) ? GetItemOrNullValue(item, "status ΜΟΝΑΔΑΣ ΔΙΑΧΕΙΡΙΣΗΣ") : GetStringOrLookUpValue(item, "Status Μονάδας Διαχείρισης (ΛΣ)");
+                dr["StatusYpovolis"] = NomikaItem(item) ? GetItemOrNullValue(item, "Status Υποβολής") : GetStringOrLookUpValue(item, "Status Υποβολής (ΛΣ)");
+                dr["Title"] = NomikaItem(item) ? item["Title"] : item["Title"];
+                dr["AitiologiaSinallagis"] = NomikaItem(item) ? GetItemOrNullValue(item, "Αιτιολογία Συναλλαγής") : GetItemOrNullValue(item, "Αιτιολογία συναλλαγής (ΛΣ)");
+                dr["ArithmosParastatikou"] = NomikaItem(item) ? GetItemOrNullValue(item, "Αριθμός Παραστατικού") : null;
+                dr["Dikaiouxos"] = NomikaItem(item) ? GetItemOrNullValue(item, "Δικαιούχος Εντολής") : GetItemOrNullValue(item, "Δικαιούχος (ΛΣ)");
+                dr["EidosEntolea"] = NomikaItem(item) ? GetItemOrNullValue(item, "Είδος Εντολέα") : GetStringOrLookUpValue(item, "Είδος Πελάτη/Εντολέα (ΛΣ)");
+                dr["EdosSinallagis"] = NomikaItem(item) ? GetItemOrNullValue(item, "Είδος Συναλλαγής") : GetStringOrLookUpValue(item, "Είδος Συναλλαγής (ΛΣ)");
+                dr["MonadaDiax"] = NomikaItem(item) ? GetItemOrNullValue(item, "Μονάδα Διαχείρισης") : GetStringOrLookUpValue(item, "Μονάδα Διαχείρισης Σχέσης (ΛΣ)");
+                dr["limit"] = NomikaItem(item) ? GetDecimalOrDefaultValue(item, "Όριο") : null;
+                dr["XoraProorismouKefaleon"] = NomikaItem(item) ? GetItemOrNullValue(item, "Χώρα Προορισμού Κεφαλαίων") : GetStringOrLookUpValue(item, "Χώρα προορισμού κεφαλαίων (ΛΣ)");
+                dr["Created"] = NomikaItem(item) ? item["Created"] : item["Created"];
+                dr["CreatedBy"] = NomikaItem(item) ? item["Created By"] : item["Created By"];
+                dr["Modified"] = NomikaItem(item) ? item["Modified"] : item["Modified"];
+                dr["ModifiedBy"] = NomikaItem(item) ? item["Modified By"] : item["Modified By"];
+                dr["sent2TEE"] = NomikaItem(item) ? GetItemOrNullValue(item, "sent2TEE") : GetItemOrNullValue(item, "sent2TEE");
+                dr["typos"] = NomikaItem(item) ? GetItemOrNullValue(item, "typos") : GetItemOrNullValue(item, "typos");
+                dr["statusEETS"] = NomikaItem(item) ? GetItemOrNullValue(item, "status ΕΕΤΣ") : GetItemOrNullValue(item, "Status ΕΕΤΣ (ΛΣ)");
+                //TODO: to onoma tou pedio TUN-Αρ. Συν/γής (ΛΣ) ston PROD EINAI "TUN-Αρ. Συν/γής (ΛΣ)"
+                //dr["TUN"] = NomikaItem(item) ? item["TUNSynallagiNumber"] : item["TUN-Αρ. Συν/γής (ΛΣ)"];
+                dr["TUN"] = NomikaItem(item) ? GetItemOrNullValue(item, "TUNSynallagiNumber") : GetItemOrNullValue(item, "TUN-Αρ. Συν/γής (ΛΣ)");
+                dr["Minas"] = NomikaItem(item) ? GetItemOrNullValue(item, "ΜΗΝΑΣ") : GetItemOrNullValue(item, "ΜΗΝΑΣ (ΛΣ)");
+                dr["statusMonadaEkkatharisis"] = NomikaItem(item) ? GetItemOrNullValue(item, "status ΜΟΝΑΔΑ ΕΚΚΑΘΑΡΙΣΗΣ") : null;
+                dr["AitiologiYpovolisAitimatosProsEETS"] = NomikaItem(item) ? GetItemOrNullValue(item, "Αιτιολογία Υποβολής Αιτήματος προς την ΕΕΤΣ") : null;
+                dr["AitoumenoIdrima"] = NomikaItem(item) ? GetItemOrNullValue(item, "Αιτούμενο Ίδρυμα") : GetItemOrNullValue(item, "Αιτούμενο Ίδρυμα");
+                dr["ArProtEgkriseosYETS"] = NomikaItem(item) ? GetItemOrNullValue(item, "Αρ. Πρωτ. Εγκρίσεως ΥΕΤΣ") : GetItemOrNullValue(item, "Αρ.Πρωτ. Εγκρίσεως ΥΕΤΣ (ΛΣ)");
+                dr["ArFakelouBT"] = NomikaItem(item) ? GetItemOrNullValue(item, "Αρ. φακέλου Bank Trade") : null;
+                dr["ArProtApofasisEETS"] = NomikaItem(item) ? GetItemOrNullValue(item, "Αριθμός Πρωτ. Αποφάσεως ΕΕΤΣ") : GetItemOrNullValue(item, "Αρ.Πρωτ. Αποφάσεως ΕΕΤΣ (ΛΣ)");
+                dr["DiaxeiristisKY"] = NomikaItem(item) ? GetItemOrNullValue(item, "Διαχειριστής ΚΥ") : null;
+                //dr["EgkrithenPosoEETS"] = NomikaItem(item) ? item["Εγκριθέν ποσό από ΕΕΤΣ"] : item["Εγκριθέν ποσό από ΕΕΤΣ (ΛΣ)"];
+                dr["EgkrithenPosoEETS"] = NomikaItem(item) ? GetDecimalOrDefaultValue(item, "Εγκριθέν ποσό από ΕΕΤΣ") : GetDecimalOrDefaultValue(item, "egkrithenPosoApoEETs");
+                dr["EgkrisiEETS"] = NomikaItem(item) ? GetItemOrNullValue(item, "Έγκριση ΕΕΤΣ") : null;
+                dr["EgkrisiYETS"] = NomikaItem(item) ? GetItemOrNullValue(item, "Έγκριση ΥΕΤΣ") : null;
+                dr["EidosParastatikou"] = NomikaItem(item) ? GetItemOrNullValue(item, "Είδος Παραστατικού") : null;
+                dr["EidosProiontos"] = NomikaItem(item) ? GetItemOrNullValue(item, "Είδος Προϊόντος") : GetStringOrLookUpValue(item, "Είδος προϊόντος (ΛΣ)");
+                dr["EisigitisA"] = NomikaItem(item) ? GetItemOrNullValue(item, "Εισηγητής Α") : GetItemOrNullValue(item, "Εισηγητής Α (ΛΣ)");
+                dr["EisigitisB"] = NomikaItem(item) ? GetItemOrNullValue(item, "Εισηγητής Β") : GetItemOrNullValue(item, "Εισηγητής Β (ΛΣ)");
+                dr["HmerominiaEkkathSinallagis"] = NomikaItem(item) ? GetItemOrNullValue(item, "Ημ/νία Εκκαθ. Συν/γής") : GetItemOrNullValue(item, "Ημ/νία Εκκαθ. Συν/γής (ΛΣ)");
+                dr["HmerominiaKataxorisisSinallagis"] = NomikaItem(item) ? GetItemOrNullValue(item, "Ημ/νία Καταχωρ. Συν/γής") : GetItemOrNullValue(item, "Ημ/νία Καταχωρ. Συν/γής (ΛΣ)");
+                dr["HmerominiaApostolisEgkrisis"] = NomikaItem(item) ? GetItemOrNullValue(item, "Ημερομηνία Αποστολής Εγκρίσεως ΕΕΤΣ/ΥΕΤΣ") : GetItemOrNullValue(item, "Ημερομηνία αποστολής για τη λήψη έγκρισης (ΛΣ)");
+                dr["HmerominiaApofasisEETS"] = NomikaItem(item) ? GetItemOrNullValue(item, "Ημερομηνία Απόφασης ΕΕΤΣ") : GetItemOrNullValue(item, "Ημ/νία Απόφασης ΕΕΤΣ (ΛΣ)");
+                dr["HmerominiaEgkrisisYETS"] = NomikaItem(item) ? GetItemOrNullValue(item, "Ημερομηνία Εγκρίσεως ΥΕΤΣ") : GetItemOrNullValue(item, "Ημ/νία Εγκρίσεως ΥΕΤΣ (ΛΣ)");
+                dr["HmerominiaEgkrisisMD"] = NomikaItem(item) ? GetItemOrNullValue(item, "Ημερομηνία έγκρισης ΜΔ") : GetItemOrNullValue(item, "Ημερομηνία Έγκρισης ΜΔ (ΛΣ)");
+                dr["HmerominiaIsotimias"] = NomikaItem(item) ? GetItemOrNullValue(item, "Ημερομηνία Ισοτιμίας") : GetItemOrNullValue(item, "Ημερομηνία Ισοτιμίας (ΛΣ)");
+                dr["HmerominiaLiksisTimologiou"] = NomikaItem(item) ? GetItemOrNullValue(item, "Ημερομηνία Λήξης Τιμολογίου") : null;
+                dr["HmerominiaLipsisApofasisEETS"] = NomikaItem(item) ? GetItemOrNullValue(item, "Ημερομηνία λήψης απόφασης ΕΕΤΣ") : GetItemOrNullValue(item, "Ημ/νία λήψης απόφασης ΕΕΤΣ (ΛΣ)");
+                dr["HmerominiaParadosisProiontos"] = NomikaItem(item) ? GetItemOrNullValue(item, "Ημερομηνία Παράδοσης Προϊόντος") : null;
+                dr["HmerominiaParastatikou"] = NomikaItem(item) ? GetItemOrNullValue(item, "Ημερομηνία Παραστατικού") : null;
+                dr["ThetikiEisisgisiProsEETS"] = NomikaItem(item) ? GetItemOrNullValue(item, "Θετική Εισήγηση προς ΕΕΤΣ") : GetItemOrNullValue(item, "Θετική Εισήγηση προς ΕΕΤΣ (ΛΣ)");
+                dr["Isotimia"] = NomikaItem(item) ? GetItemOrNullValue(item, "Ισοτιμία") : GetItemOrNullValue(item, "Ισοτιμία (ΛΣ)");
+                dr["KatigoriaProiontos"] = NomikaItem(item) ? GetItemOrNullValue(item, "Κατηγορία Προϊόντος") : GetStringOrLookUpValue(item, "Κατηγορία προϊόντος (ΛΣ)");
+                dr["KodikosAEIS"] = NomikaItem(item) ? GetItemOrNullValue(item, "ΚωδικόςΑΕΙΣ") : null;
+                dr["LeptomeriesAporripsis"] = NomikaItem(item) ? GetItemOrNullValue(item, "Λεπτομέρειες Απόρριψης") : GetItemOrNullValue(item, "Λεπτομέρειες Απόρριψης");
+                dr["OrosPliromis"] = NomikaItem(item) ? GetItemOrNullValue(item, "Όρος Πληρωμής") : null;
+                //dr["SinolikoPoso"] = NomikaItem(item) ? item["Συνολικό Ποσό"] : null;
+                dr["SinolikoPoso"] = NomikaItem(item) ? GetDecimalOrDefaultValue(item, "Συνολικό Ποσό") : null;
+                dr["SxoliaPliromis"] = NomikaItem(item) ? GetItemOrNullValue(item, "Σχόλια Πληρωμής") : null;
+                dr["SxolioApofasisEETS"] = NomikaItem(item) ? GetItemOrNullValue(item, "Σχόλιο Αποφ. ΕΕΤΣ") : GetItemOrNullValue(item, "Σχόλιο Απόφ. ΕΕΤΣ (ΛΣ)");
+                dr["SxolioEgkrYETS"] = NomikaItem(item) ? GetItemOrNullValue(item, "Σχόλιο Έγκρ. ΥΕΤΣ") : GetItemOrNullValue(item, "Σχόλιο Εγκρ. ΥΕΤΣ (ΛΣ)");
+                dr["SxolioEisigisis"] = NomikaItem(item) ? GetItemOrNullValue(item, "Σχόλιο Εισήγησης") : null;
+                //TODO: Σχόλιο Συναλλαγής- (ΛΣ) den yparxei ston DEV
+                //dr["SxolioSinallagis"] = NomikaItem(item) ? item["Σχόλιο Συναλλαγής"] : item["Σχόλιο Συναλλαγής- (ΛΣ)"];
+                dr["SxolioSinallagis"] = NomikaItem(item) ? GetItemOrNullValue(item, "Σχόλιο Συναλλαγής") : null;
+                dr["TilEpikoinonias"] = NomikaItem(item) ? GetItemOrNullValue(item, "Τηλέφωνο Επικοινωνίας") : GetItemOrNullValue(item, "Τηλέφωνο επικοινωνίας (ΛΣ)");
+                dr["Fek"] = NomikaItem(item) ? GetStringOrLookUpValue(item, "FEKLookup") : null;
+                // dr["FekOld"] = NomikaItem(item) ? item["ΦΕΚold"] : null;
+                dr["AA"] = NomikaItem(item) ? null : GetItemOrNullValue(item, "Α.Α. (ΛΣ)");
+                dr["KataliktikiHmerominiaPliromis"] = NomikaItem(item) ? null : GetItemOrNullValue(item, "Καταληκτική Ημερομηνία προθεσμίας πληρωμής (ΛΣ)");
+                dr["KodikosESEK"] = NomikaItem(item) ? null : GetItemOrNullValue(item, "Κωδικός ΕΣΕΚ (ΛΣ)");
+                dr["EisigisiSxoliaKatastimatos"] = NomikaItem(item) ? null : GetItemOrNullValue(item, "Εισήγηση - Σχόλια Καταστήματος (ΛΣ)");
+                dr["EisigisiMD"] = NomikaItem(item) ? null : GetStringOrLookUpValue(item, "Εισήγηση Μονάδας Διαχείρισης (ΛΣ)");
+                dr["AEISLimitInfo"] = NomikaItem(item) ? GetDecimalOrDefaultValue(item, "AEIS_LimitInfo") : GetDecimalOrDefaultValue(item, "fpAEIS_LimitInfo");
+                dr["AEISLimitInfoMonth"] = NomikaItem(item) ? GetDecimalOrDefaultValue(item, "AEIS_LimitInfoMonth") : GetDecimalOrDefaultValue(item, "fpAEIS_LimitInfoMonth");
+                dr["AEISLimitInfoYear"] = NomikaItem(item) ? GetDecimalOrDefaultValue(item, "AEIS_LimitInfoYear") : GetDecimalOrDefaultValue(item, "fpAEIS_LimitInfoYear");
+                dr["DPXPUsers"] = NomikaItem(item) ? GetItemOrNullValue(item, "DPXPUsers") : GetItemOrNullValue(item, "fpDPXPUsers");
+                dr["epitropi"] = NomikaItem(item) ? GetItemOrNullValue(item, "epitropi") : GetItemOrNullValue(item, "epitropiLS");
+                dr["GroupAitimatos"] = NomikaItem(item) ? GetItemOrNullValue(item, "Group") : null;
+                dr["LimitInfo"] = NomikaItem(item) ? GetDecimalOrDefaultValue(item, "LimitInfo") : GetDecimalOrDefaultValue(item, "fpLimitInfo");
+                dr["LimitInfoMonth"] = NomikaItem(item) ? GetDecimalOrDefaultValue(item, "LimitInfoMonth") : GetDecimalOrDefaultValue(item, "fpLimitInfoMonth");
+                dr["LimitInfoYear"] = NomikaItem(item) ? GetDecimalOrDefaultValue(item, "LimitInfoYear") : GetDecimalOrDefaultValue(item, "fpLimitInfoYear");
+                dr["MDUsers"] = NomikaItem(item) ? GetItemOrNullValue(item, "MDUsers") : GetItemOrNullValue(item, "fpMDUsers");
+                dr["MyPath"] = NomikaItem(item) ? GetItemOrNullValue(item, "MyPath") : null;
+                dr["npYear"] = NomikaItem(item) ? GetItemOrNullValue(item, "npYear") : GetItemOrNullValue(item, "fpYear");
+                dr["AitimaType"] = ResolveAitimaType(item);
+                dr["ProsKataxorisiKY"] = NomikaItem(item) ? GetItemOrNullValue(item, "Προς Καταχώρηση από Κ/Υ") : null;
+                dr["HmerominiaAxiologisis"] = NomikaItem(item) ? GetItemOrNullValue(item, "Ημερομηνία Αξιολόγησης") : GetItemOrNullValue(item, "Ημερομηνία Αξιολόγησης (ΛΣ)");
+                
+                string listUrl = ResolveListUrl(web);
+                dr["Url"] = NomikaItem(item) ? listUrl + "/" + katastima + "?FilterField1=KodikosAitimatos&FilterValue1=" + Convert.ToString(kwdikosAitimatos)
+                                                : listUrl + "/AllItemsls.aspx?FilterField1=fpKwdikosAitimatos&FilterValue1=" + Convert.ToString(kwdikosAitimatos);
+
+                return dr;
+            }
+            catch (Exception ex)
+            {
+                string message = string.Format("SPID: {0}, Message: {1}", dr["SPID"].ToString(), ex.Message);
+                WriteToLog(message, true);
+
+                return null;
+                //throw;
+            }
+        }
+
+        static string ResolveListUrl(SPWeb web)
+        {
+            if (string.IsNullOrWhiteSpace(web.Url))
+                throw new ApplicationException("Unable to resolve url");
+
+            return web.Url + "/Lists/timologia";
+        }
+
+        static int ResolveAitimaType(SPListItem item)
+        {
+            if (NomikaItem(item))
+            {
+                return (int)AitimaType.NOMIKA;
+            }
+            else
+            {
+                if (item["Είδος Πελάτη/Εντολέα (ΛΣ)"] != null)
+                {
+                    //ΝΟΜΙΚΟ ΠΡΟΣΩΠΟ, Νομικό Πρόσωπο
+                    string eidosEntolea = GetStringOrLookUpValue(item, "Είδος Πελάτη/Εντολέα (ΛΣ)");
+                    if (eidosEntolea.Equals("ΝΟΜΙΚΟ ΠΡΟΣΩΠΟ", StringComparison.InvariantCultureIgnoreCase))
+                        return (int)AitimaType.FYSIKA_ME_EIDOS_ENTOLEA_NOMIKO;
+                }
+
+                return (int)AitimaType.FYSIKA;
+            }
+        }
+
+        private static void CreateDataTable(out DataTable dt)
+        {
+            dt = new DataTable();
+
+            dt.Clear();
+            dt.Columns.Add("SPID");
+            dt.Columns.Add("Code");
+            dt.Columns.Add("Katastima");
+            dt.Columns.Add("Cdi");
+            dt.Columns.Add("Afm");
+            dt.Columns.Add("NomismaParastatikou");
+            dt.Columns.Add("PosoParastatikou");
+            dt.Columns.Add("SinolikiEtisiaAxia");
+            dt.Columns.Add("MegistiMinieaAxiaMetaforon");
+            dt.Columns.Add("IsotimoEuro");
+            dt.Columns.Add("SinolikiAxiaTrexonMinas");
+            dt.Columns.Add("HmerisioOrio");
+            dt.Columns.Add("NomismaEkathSinalagis");
+            dt.Columns.Add("PosoEkathSinallagis");
+            dt.Columns.Add("PosoEkathSinallagisEuro");
+            dt.Columns.Add("HmerominiaYpovolis");
+            dt.Columns.Add("Customer");
+            dt.Columns.Add("statusDPXP");
+            dt.Columns.Add("statusMD");
+            dt.Columns.Add("StatusYpovolis");
+            dt.Columns.Add("Title");
+            dt.Columns.Add("AitiologiaSinallagis");
+            dt.Columns.Add("ArithmosParastatikou");
+            dt.Columns.Add("Dikaiouxos");
+            dt.Columns.Add("EidosEntolea");
+            dt.Columns.Add("EdosSinallagis");
+            dt.Columns.Add("MonadaDiax");
+            dt.Columns.Add("limit");
+            dt.Columns.Add("XoraProorismouKefaleon");
+            dt.Columns.Add("Created");
+            dt.Columns.Add("CreatedBy");
+            dt.Columns.Add("Modified");
+            dt.Columns.Add("ModifiedBy");
+            dt.Columns.Add("sent2TEE");
+            dt.Columns.Add("typos");
+            dt.Columns.Add("statusEETS");
+            dt.Columns.Add("TUN");
+            dt.Columns.Add("Minas");
+            dt.Columns.Add("statusMonadaEkkatharisis");
+            dt.Columns.Add("AitiologiYpovolisAitimatosProsEETS");
+            dt.Columns.Add("AitoumenoIdrima");
+            dt.Columns.Add("ArProtEgkriseosYETS");
+            dt.Columns.Add("ArFakelouBT");
+            dt.Columns.Add("ArProtApofasisEETS");
+            dt.Columns.Add("DiaxeiristisKY");
+            dt.Columns.Add("EgkrithenPosoEETS");
+            dt.Columns.Add("EgkrisiEETS");
+            dt.Columns.Add("EgkrisiYETS");
+            dt.Columns.Add("EidosParastatikou");
+            dt.Columns.Add("EidosProiontos");
+            dt.Columns.Add("EisigitisA");
+            dt.Columns.Add("EisigitisB");
+            dt.Columns.Add("HmerominiaEkkathSinallagis");
+            dt.Columns.Add("HmerominiaKataxorisisSinallagis");
+            dt.Columns.Add("HmerominiaApostolisEgkrisis");
+            dt.Columns.Add("HmerominiaApofasisEETS");
+            dt.Columns.Add("HmerominiaEgkrisisYETS");
+            dt.Columns.Add("HmerominiaEgkrisisMD");
+            dt.Columns.Add("HmerominiaIsotimias");
+            dt.Columns.Add("HmerominiaLiksisTimologiou");
+            dt.Columns.Add("HmerominiaLipsisApofasisEETS");
+            dt.Columns.Add("HmerominiaParadosisProiontos");
+            dt.Columns.Add("HmerominiaParastatikou");
+            dt.Columns.Add("ThetikiEisisgisiProsEETS");
+            dt.Columns.Add("Isotimia");
+            dt.Columns.Add("KatigoriaProiontos");
+            dt.Columns.Add("KodikosAEIS");
+            dt.Columns.Add("LeptomeriesAporripsis");
+            dt.Columns.Add("OrosPliromis");
+            dt.Columns.Add("SinolikoPoso");
+            dt.Columns.Add("SxoliaPliromis");
+            dt.Columns.Add("SxolioApofasisEETS");
+            dt.Columns.Add("SxolioEgkrYETS");
+            dt.Columns.Add("SxolioEisigisis");
+            dt.Columns.Add("SxolioSinallagis");
+            dt.Columns.Add("TilEpikoinonias");
+            dt.Columns.Add("Fek");
+            // dt.Columns.Add("FekOld");
+            dt.Columns.Add("AA");
+            dt.Columns.Add("KataliktikiHmerominiaPliromis");
+            dt.Columns.Add("KodikosESEK");
+            dt.Columns.Add("EisigisiSxoliaKatastimatos");
+            dt.Columns.Add("EisigisiMD");
+            dt.Columns.Add("AEISLimitInfo");
+            dt.Columns.Add("AEISLimitInfoMonth");
+            dt.Columns.Add("AEISLimitInfoYear");
+            dt.Columns.Add("DPXPUsers");
+            dt.Columns.Add("epitropi");
+            dt.Columns.Add("GroupAitimatos");
+            dt.Columns.Add("LimitInfo");
+            dt.Columns.Add("LimitInfoMonth");
+            dt.Columns.Add("LimitInfoYear");
+            dt.Columns.Add("MDUsers");
+            dt.Columns.Add("MyPath");
+            dt.Columns.Add("npYear");
+            dt.Columns.Add("AitimaType");
+            dt.Columns.Add("ProsKataxorisiKY");
+            dt.Columns.Add("HmerominiaAxiologisis");
+            dt.Columns.Add("Url");
+        }
+
+        static string GetConnectionString()
+        {
+            string connx = ConfigurationManager.ConnectionStrings["YETS_EETSConnectionString"].ConnectionString;
+            if (string.IsNullOrWhiteSpace(connx))
+                throw new ConfigurationErrorsException("Connection string key is missing");
+
+            return connx;
+        }
+
+        static bool NomikaItem(SPListItem item)
+        {
+            //FYI: Αίτημα Συναλλαγής (ΝΟΜΙΚΑ), Αίτημα Λοιπών Συναλλαγών (ΦΥΣΙΚΑ)
+            if (item["Title"] == null)
+                throw new ApplicationException("Title is missing, unable to determine Fysika or Nomika");
+
+            return item["Title"].ToString().Equals("Αίτημα Συναλλαγής", StringComparison.InvariantCultureIgnoreCase);
+        }
+
+        static object GetItemOrNullValue(SPListItem item, string fieldName)
+        {
+            try
+            {
+                if (item == null || item[fieldName] == null) return null;
+
+                return item[fieldName];
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        static string GetStringOrLookUpValue(SPListItem item, string fieldName)
+        {
+            try
+            {
+                if (item == null || item[fieldName] == null) return null;
+
+                if (IsLookUp(item, fieldName))
+                {
+                    //TODO: Status ΔΠΧΠ (ΛΣ) problematic data 
+                    string[] temp = item[fieldName].ToString().Split('#');
+                    if (temp.Length > 1)
+                        return item[fieldName].ToString().Split('#')[1];
+                    else
+                        return item[fieldName].ToString().Split('#')[0];
+                }
+
+                return item[fieldName].ToString();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        static object GetDecimalOrDefaultValue(SPListItem item, string fieldName)
+        {
+            try
+            {
+                if (item == null || string.IsNullOrWhiteSpace(fieldName)) return 0m;
+                if (item[fieldName] == null) return 0m;
+
+                string input = item[fieldName].ToString();
+                decimal parsed = decimal.Parse(input, CultureInfo.CreateSpecificCulture("el-GR"));
+
+                return parsed;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        static bool IsLookUp(SPListItem item, string fieldName)
+        {
+            try
+            {
+                SPField field = item.Fields[fieldName] as SPField;
+                if (field != null)
+                {
+                    return field.Type == SPFieldType.Lookup;
+                }
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        static string ResolveTempPath()
+        {
+            string destinationPath = ConfigurationManager.AppSettings["TempPath"].ToString();
+            if (string.IsNullOrWhiteSpace(destinationPath))
+                throw new ConfigurationErrorsException("TempPath key is missing");
+
+            return destinationPath;
+        }
+
+        static void WriteToLog(string message, bool isError = false)
+        {
+            Console.WriteLine(message);
+
+            using (StreamWriter sw = new StreamWriter(logPath, true, Encoding.GetEncoding(1253)))
+            {
+                if (isError)
+                    sw.WriteLine(string.Format("{0}|ERROR: {1}", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), message));
+                else
+                    sw.WriteLine(string.Format("{0}|{1}", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), message));
+            }
+        }
+    }
+}
