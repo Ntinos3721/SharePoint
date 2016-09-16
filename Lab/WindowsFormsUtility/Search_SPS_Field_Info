@@ -1,0 +1,262 @@
+using Microsoft.SharePoint.Client;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Configuration;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using WinFormsUtility.Models;
+
+namespace WinFormsUtility
+{
+    public partial class Form1 : System.Windows.Forms.Form
+    {
+        public Form1()
+        {
+            InitializeComponent();
+
+            LoadLists();
+
+            lbEnvironment.Text = ConfigurationManager.AppSettings["SiteURL"];
+
+            panelFieldInfo.Visible = true;
+            panelFieldInfo.Dock = DockStyle.Top;
+            panelMessage.Visible = true;
+            pictureBoxLoading.Visible = false;
+
+            ClearFields();
+            txtColumn.Focus();
+        }
+        
+        // Call server
+        //context.executeQueryAsync(Function.createDelegate(this, this.onSuccessMethod),
+        //                          Function.createDelegate(this, this.onFailureMethod));  
+
+        //function onSuccessMethod(sender, args) {
+        //    // Get string arry of possible choices (but NOT fill-in choices)
+        //    var choices = priorityField.get_choices();
+        //    alert("Choices: (" + choices.length + ") - " + choices.join(", "));
+        //}
+
+        //function onFailureMethod(sender, args) {
+        //    alert("oh oh!");
+        //}
+
+        void LoadLists()
+        {
+            if (cbLists.Items.Count == 0)
+            {
+                Microsoft.SharePoint.Client.ClientContext cc = new Microsoft.SharePoint.Client.ClientContext(ResolveSiteURL());
+                cc.Credentials = ResolveCredentials();
+
+                ListCollection lists = cc.Web.Lists;
+                cc.Load(lists);
+
+                cc.ExecuteQuery();
+
+                cbLists.Items.Clear();
+                foreach (var item in lists)
+                {
+                    cbLists.Items.Add(item.Title);
+                }
+
+                cbLists.SelectedItem = "AITHMATA";
+            }
+        }
+
+        void ClearFields()
+        {
+            txtColumn.Text = string.Empty;
+            txtTitle.Text = string.Empty;
+            txtInternalName.Text = string.Empty;
+            txtDisplayName.Text = string.Empty;
+            txtType.Text = string.Empty;
+            txtMessage.Text = string.Empty;
+            txtLookupListName.Text = string.Empty;
+
+            txtGuid.Text = string.Empty;
+            txtViewName.Text = string.Empty;
+
+            lbValues.Items.Clear();
+        }
+
+        string ResolveSiteURL()
+        {
+            string env = System.Configuration.ConfigurationManager.AppSettings["SiteURL"];
+            if (string.IsNullOrWhiteSpace(env))
+                throw new ConfigurationErrorsException("Invalid key: SiteURL");
+
+            return env;
+        }
+
+        static System.Net.ICredentials ResolveCredentials()
+        {
+            string username = System.Configuration.ConfigurationManager.AppSettings["Username"];
+            if (string.IsNullOrWhiteSpace(username))
+                throw new ConfigurationErrorsException("Invalid key: Username");
+
+            string password = System.Configuration.ConfigurationManager.AppSettings["Password"];
+            if (string.IsNullOrWhiteSpace(password))
+                throw new ConfigurationErrorsException("Invalid key: Password");
+
+            string domain = System.Configuration.ConfigurationManager.AppSettings["Domain"];
+            if (string.IsNullOrWhiteSpace(domain))
+                throw new ConfigurationErrorsException("Invalid key: Domain");
+
+            return new System.Net.NetworkCredential(username, password, domain);
+        }
+
+        private void mnuFieldInfoItem_Click(object sender, EventArgs e)
+        {
+            LoadLists();
+
+            panelFieldInfo.Visible = true;
+            panelFieldInfo.Dock = DockStyle.Top;
+            panelMessage.Visible = true;
+
+            ClearFields();
+
+            txtColumn.Focus();
+        }
+
+        async Task<FieldInfo> DoStuffAsync(string selectedItem)
+        {
+            // The await operator is applied to a task in an asynchronous method (DoStuff) 
+            // to suspend the execution of the method until the awaited task completes.
+            var fi = new FieldInfo();
+            fi.Choices = new List<string>();
+            fi.Values = new List<string>();
+
+            await Task.Run(() =>
+            {
+                try
+                {
+                    string column = txtColumn.Text.Trim();
+
+                    Microsoft.SharePoint.Client.ClientContext cc = new Microsoft.SharePoint.Client.ClientContext(ResolveSiteURL());
+                    cc.Credentials = ResolveCredentials();
+
+                    var aitimataList = cc.Web.Lists.GetByTitle(selectedItem);
+                    cc.Load(aitimataList);
+
+                    // get fields
+                    Field fieldInfo = aitimataList.Fields.GetByInternalNameOrTitle(column);
+                    cc.Load(fieldInfo);
+
+                    // one execution ...
+                    cc.ExecuteQuery();
+
+                    fi.ID = fieldInfo.Id.ToString();
+                    fi.Title = fieldInfo.Title;
+                    fi.InternalName = fieldInfo.InternalName;
+                    fi.TypeDisplayName = fieldInfo.StaticName;
+                    fi.FieldTypeKind = fieldInfo.FieldTypeKind.ToString();
+
+                    if (fieldInfo.FieldTypeKind == FieldType.Choice)
+                    {
+                        FieldChoice choiceField = cc.CastTo<FieldChoice>(fieldInfo);
+                        if (choiceField != null)
+                        {
+                            var choices = new List<string>();
+                            foreach (string item in choiceField.Choices)
+                                fi.Choices.Add(item);
+
+                        }
+                    }
+                    else if (fieldInfo.FieldTypeKind == FieldType.Lookup)
+                    {
+                        FieldLookup lookupField = cc.CastTo<FieldLookup>(fieldInfo);
+                        if (lookupField != null)
+                        {
+                            string lookupID = lookupField.LookupList;
+                            var lookupList = cc.Web.Lists.GetById(new Guid(lookupID)); //.GetByTitle(lookupName);
+                            cc.Load(lookupList);
+
+                            ListItemCollection listItems = lookupList.GetItems(CamlQuery.CreateAllItemsQuery());
+                            cc.Load(listItems, listCollection => listCollection.Include(
+                                                                    item => item["ID"],
+                                                                    item => item["Title"]));
+                            cc.ExecuteQuery();
+
+                            fi.LookupListTitle = lookupList == null ? string.Empty : lookupList.Title;
+
+                            foreach (ListItem item in listItems)
+                                fi.Values.Add(string.Format("{0}  {1}", item["ID"], item["Title"]));
+
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    fi.ExceptionMessage = ex.Message;
+                }
+            });
+
+            return fi;
+        }
+
+        private async void btnSearch_Click_1(object sender, EventArgs e)
+        {
+            pictureBoxLoading.Visible = true;
+            txtMessage.Text = string.Empty;
+            lbValues.Items.Clear();
+
+            FieldInfo fi = await DoStuffAsync(cbLists.SelectedItem.ToString());
+            txtID.Text = fi.ID;
+            txtMessage.Text = fi.ExceptionMessage;
+            txtTitle.Text = fi.Title;
+            txtInternalName.Text = fi.InternalName;
+            txtDisplayName.Text = fi.TypeDisplayName;
+            txtType.Text = fi.FieldTypeKind;
+            txtLookupListName.Text = fi.LookupListTitle;
+            
+            foreach(var item in fi.Choices)
+                lbValues.Items.Add(item);
+            foreach (var item in fi.Values)
+                lbValues.Items.Add(item);
+
+            pictureBoxLoading.Visible = false;
+        }
+               
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+
+        }
+
+        private void btnSearchView_Click_1(object sender, EventArgs e)
+        {
+            try
+            {
+                txtMessage.Text = string.Empty;
+                txtViewName.Text = string.Empty;
+
+                Guid guid = new Guid(txtGuid.Text.Trim());
+
+                Microsoft.SharePoint.Client.ClientContext cc = new Microsoft.SharePoint.Client.ClientContext(ResolveSiteURL());
+                cc.Credentials = ResolveCredentials();
+
+                var aitimataList = cc.Web.Lists.GetByTitle(cbLists.SelectedItem.ToString());
+                cc.Load(aitimataList);
+
+                // get view
+                Microsoft.SharePoint.Client.View currentView = aitimataList.GetView(guid);
+                cc.Load(currentView);
+
+                // one execution ...
+                cc.ExecuteQuery();
+
+                txtViewName.Text = currentView.Title;
+            }
+            catch (Exception ex)
+            {
+                txtMessage.Text = ex.Message;
+            }
+        }
+    }
+}
