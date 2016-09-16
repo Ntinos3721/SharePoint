@@ -1,14 +1,48 @@
 /*
-You are receiving this e-mail message because you are an administrator of the following SharePoint Web site, 
-which has exceeded the warning level for storage: http://TODO/. 
-To see how much storage is being taken up by this site, go to the View site collection usage summary: 
-http://TODO/_layouts/Usage.aspx
+  You are receiving this e-mail message because you are an administrator of the following SharePoint Web site, 
+  which has exceeded the warning level for storage: http://TODO/. 
+  To see how much storage is being taken up by this site, go to the View site collection usage summary: 
+  http://TODO/_layouts/Usage.aspx
 */ 
 http://jasperbeerens.blogspot.gr/2009/09/changing-my-site-user-storage-free.html
 http://dms/apps/pnpdemands/_layouts/15/usage.aspx
 
 1. Empty Recycle Bin ?
 2. Application Management  --> Site Collection Quotas and Locks
+
+
+/* Retract & Deploy .wsp */
+Retract .swp
+1.	Go to administration site (e.g. http://TODO:9999).
+2.	System Settings, Manage farm solutions and click on the .wsp
+3.	Retract Solution (means deactivate).
+4.	Remove Solution (means delete from server).
+
+Deploy .swp
+1.	Go to Visual Studio, Build menu and Publish …
+2.	Run SharePoint 2013 Management Shell as administrator.
+3.	Write Add-SPSolution, press enter and for LiteralPath parameter, enter the path where .wsp exists (e.g. C:\Temp\spapppage.wsp).
+4.	Go to administration site, farm solutions and deploy the .wsp.
+
+
+
+/* How to add a project to GAC */
+1) copy the dll manually
+
+a)Open c:\windows\assembly directory in windows explorer
+b)Open another instance of windows explorer and go to the place where your dll is located, 
+usually in the bin folder. (so now you will have two windows open)
+c)select the dll you would like to copy to gac and drag it inside the assembly directory, c:\windows\assembly
+
+
+2) use VS to deploy it for you to GAC.
+a) in your sharepoint project double click on "Package".
+b) Package.Package will open. Look bottom left of your screen and click on "Advanced", 
+c) then click on "Add", then select "Add Assembly from project output...". 
+d) In the Source project dropdownlist select the project and then click OK. 
+e) finally deploy the solution and the dll will be in the gac.
+
+
 
 
 
