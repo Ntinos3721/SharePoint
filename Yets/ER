@@ -1,0 +1,580 @@
+
+using System;
+using System.IO;
+using System.Security.Permissions;
+using Microsoft.SharePoint;
+using Microsoft.SharePoint.Utilities;
+using Microsoft.SharePoint.Workflow;
+using System.Data.SqlClient;
+using System.Data;
+using System.Globalization;
+using YETSEETSCommon;
+
+namespace PNPDemandsER.CodeGenER
+{
+    /// <summary>
+    /// List Item Events
+    /// </summary>
+    public partial class CodeGenER : SPItemEventReceiver
+    {
+        // listitem["Created"] einai null sto ItemAdding
+        //http://www.sharepointalex.co.uk/index.php/2010/06/beforepropertiesafterproperties-in-event-receivers-i-always-forget-this/
+
+        public override void ItemAdded(SPItemEventProperties properties)
+        {
+            if (properties.ListTitle == "AITHMATA")
+            {
+                ItemCodeGeneration(properties);
+
+                if (properties.ListItem.ContentType.Name == "Αίτημα Συναλλαγής") //FYI: nomika proswpa
+                { SetItemFolder(properties); }
+                if (properties.ListItem.ContentType.Name == "Αίτημα για Φυσικά Πρόσωπα")
+                { SetItemFolderPhysicalPersons(properties); }
+
+                InsertReportData(properties);
+            }
+        }
+
+        private void InsertReportData(SPItemEventProperties properties)
+        {
+            SPListItem currentItem = null;
+
+            try
+            {
+                SPWeb web = properties.OpenWeb();
+                currentItem = properties.ListItem;
+
+                var dbHelper = new DBHelper(web, currentItem);
+                dbHelper.InsertSQLAitima();
+            }
+            catch (Exception ex)
+            {
+                string message = currentItem == null ? ex.Message : string.Format("ID:{0}, {1}", currentItem.ID, ex.Message);
+                Log(null, "Error", "ER-SQL", properties, string.Format("InsertReportData, {0}", message));
+            }
+        }
+
+        public override void ItemUpdated(SPItemEventProperties properties)
+        {   
+            if (properties.ListTitle == "AITHMATA")
+            { 
+                ItemCodeGeneration(properties);
+
+                ER2(properties);
+
+                UpdateReportData(properties);
+            }
+        }
+
+        private void UpdateReportData(SPItemEventProperties properties)
+        {
+            SPListItem currentItem = null;
+
+            try
+            {
+                SPWeb web = properties.OpenWeb();
+                currentItem = properties.ListItem;
+
+                var dbHelper = new DBHelper(web, currentItem);
+                //FYI: Insert into Aitimata history
+                dbHelper.InsertSQLHistory(HistoryAction.Update);
+                //FYI: Update item in Aitimata with item's current values
+                dbHelper.UpdateSQLAitima();
+            }
+            catch (Exception ex)
+            {
+                string message = currentItem == null ? ex.Message : string.Format("ID:{0}, {1}", currentItem.ID, ex.Message);
+                Log(null, "Error", "ER-SQL", properties, string.Format("UpdateReportData, {0}", message));
+            }
+        }
+
+        private void ER2(SPItemEventProperties properties)
+        {
+            base.EventFiringEnabled = false;
+            properties.Web.AllowUnsafeUpdates = true;
+
+            string mycode = "";
+
+            try
+            {
+                SPSecurity.RunWithElevatedPrivileges(delegate()
+                {
+                    using (SPSite site = new SPSite(properties.Web.Site.ID))
+                    {
+                        if (properties.List.ToString().Equals("AITHMATA"))
+                        {
+                            SPListItem thisItem = properties.ListItem;
+
+                            if (thisItem["sent2TEE"] != null)
+                            {
+                                //Log(mycode,"Info", properties, "ItemUpdated: " + thisItem["sent2TEE"]);
+                                if (thisItem["sent2TEE"].ToString().Equals("true"))
+                                {
+                                    //Log("Important",properties,"Content type:"+properties.ListItem.ContentType.Name.ToString());
+                                    if (properties.ListItem.ContentType.Name.ToString().Equals("Αίτημα για Φυσικά Πρόσωπα"))
+                                    {
+                                        mycode = IsNull(thisItem["Κωδικός Αιτήματος πελάτη (ΛΣ)"]);
+                                        processLP(mycode, properties, thisItem, "t");
+                                    }
+                                    else
+                                    {
+                                        mycode = IsNull(thisItem["Κωδικός Αιτήματος"]);
+                                        myprocessItem(mycode, properties, thisItem, "t");
+                                    }
+                                }
+                                else
+                                {
+                                    if (thisItem["sent2TEE"].ToString().Equals("cancelled"))
+                                    {
+                                        //Log("Important", properties, "Content type:" + properties.ListItem.ContentType.Name.ToString());
+                                        if (properties.ListItem.ContentType.Name.ToString().Equals("Αίτημα για Φυσικά Πρόσωπα"))
+                                        {
+                                            //FYI: issue 270
+                                            if (thisItem["Status Υποβολής (ΛΣ)"].ToString().Split('#')[1].Equals("ΠΡΟΣ ΑΞΙΟΛΟΓΗΣΗ")
+                                                && thisItem["Status Μονάδας Διαχείρισης (ΛΣ)"].ToString().Split('#')[1].Equals("ΕΛΕΓΜΕΝΟ ΠΡΟΣ ΧΧΧΧ")
+                                                && thisItem["Status ΔΠΧΠ (ΛΣ)"].ToString().Split('#')[1].Equals("ΧΧΧΧ ΥΠΟ ΕΞΕΤΑΣΗ"))
+                                            {
+                                                mycode = IsNull(thisItem["Κωδικός Αιτήματος πελάτη (ΛΣ)"]);
+                                                cancelLP(mycode, properties, "c");
+                                            }
+                                        }
+                                        else
+                                        {
+                                            mycode = IsNull(thisItem["Κωδικός Αιτήματος"]);
+                                            cancelmyItem(mycode, properties, "c");
+                                        }
+                                    }
+                                }
+                            }
+
+                            //TODO:*******************************************
+                            //TODO: ginete update meta ton kodika toy ER2
+                            //UpdateSQLData(properties);
+                        }
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Log(mycode, "Error", properties, "ItemUpdated:" + ex.ToString());
+            }
+
+            properties.Web.AllowUnsafeUpdates = false;
+            base.EventFiringEnabled = true; // στo τέλος
+
+        }
+        private void ItemCodeGeneration(SPItemEventProperties properties)
+        {
+            SPListItem thisItem = properties.ListItem;
+
+            try
+            {
+                //Epixeirhseis vs Fusika proswpa
+                if (thisItem.ContentType.Name == "Αίτημα Συναλλαγής") //Epixeirhseis
+                {
+                    //string fieldName = "Κωδικός Αιτήματος";
+                    //string fieldInternalName = properties.List.Fields[fieldName].InternalName;
+
+                    thisItem["typos"] = "ΝΠ";
+                    thisItem["Title"] = "Αίτημα Συναλλαγής";
+
+                    thisItem["Κωδικός Αιτήματος"] = GetRequestCode(thisItem);
+
+                    SetEpitropiNP(thisItem); //FYI:Ημερομηνία Εγκρίσεως ΧΧΧΧ, Ημερομηνία λήψης απόφασης ΧΧΧΧ.
+
+                    SetAxiologisiNP(thisItem);
+
+                    //SetHmeromhniaEgkrishsMD(thisItem);
+
+                    thisItem["npYearMonth"] = DateTime.Parse(thisItem["Created"].ToString()).ToString("yyyy-MM");
+                    thisItem["npYear"] = DateTime.Parse(thisItem["Created"].ToString()).ToString("yyyy");
+
+                }
+                else if (thisItem.ContentType.Name == "Αίτημα για Φυσικά Πρόσωπα")
+                {
+                    //thisItem["Α.Α. (ΛΣ)"] = GetAAPhysicalPersons(properties);
+
+                    thisItem["typos"] = "ΛΣ";
+                    thisItem["Title"] = "Αίτημα Λοιπών Συναλλαγών";
+
+                    thisItem["Κωδικός Αιτήματος πελάτη (ΛΣ)"] = GetRequestCodePhysicalPersons(thisItem);
+
+                    SetEpitropiLS(thisItem);
+
+                    SetAxiologisiLS(thisItem);
+
+                    //SetHmeromhniaEgkrishsMDLS(thisItem);
+
+                    thisItem["fpYearMonth"] = DateTime.Parse(thisItem["Created"].ToString()).ToString("yyyy-MM");
+                    thisItem["fpYear"] = DateTime.Parse(thisItem["Created"].ToString()).ToString("yyyy");
+                }
+
+                //Multiple updated event firing
+                //http://www.c-sharpcorner.com/UploadFile/anavijai/programmatically-disable-event-firing-on-list-item-update-in/
+                this.EventFiringEnabled = false;
+                thisItem.Update();
+                this.EventFiringEnabled = true;
+            }
+            catch (Exception x) { Log(properties, thisItem["Κωδικός Αιτήματος"] + " | " + thisItem["Κωδικός Αιτήματος πελάτη (ΛΣ)"] +  " | " + thisItem.ID + " | " + properties.UserLoginName + " | CodeGeneration: " + x.Message); }
+        }
+        private void SetEpitropiNP(SPListItem item)
+        {
+            if (item["Ημερομηνία Εγκρίσεως ΧΧΧΧ"] != null)
+            {
+                item["ΚωδικόςΑΕΙΣ"] = GetAEISCode(item, "Y");
+                item["ShortAEIS"] = GetShortAEISCode(item, "Y");
+                item["epitropi"] = "Y";
+            }
+            else if (item["Ημερομηνία λήψης απόφασης ΧΧΧΧ"] != null)
+            {
+                item["ΚωδικόςΑΕΙΣ"] = GetAEISCode(item, "E");
+                item["ShortAEIS"] = GetShortAEISCode(item, "E");
+                item["epitropi"] = "E";
+            }
+            else
+            {
+                item["ΚωδικόςΑΕΙΣ"] = "NA";
+                item["ShortAEIS"] = "NA";
+                item["epitropi"] = "NA";
+            }
+
+            if (item["status ΔΠΧΠ"] != null)
+            {
+                if (item["status ΔΠΧΠ"].ToString() == "ΧΧΧΧ ΕΓΚΕΚΡΙΜΕΝΟ")
+                {
+                    //FYI:issue 274
+                    if (item["Ημερομηνία Εγκρίσεως ΧΧΧΧ"] == null)
+                        item["Ημερομηνία Εγκρίσεως ΧΧΧΧ"] = DateTime.Today;
+
+                    if (item["Ημερομηνία Εγκρίσεως ΧΧΧΧ"] != null)
+                    {
+                        item["Αρ. Πρωτ. Εγκρίσεως ΧΧΧΧ"] =
+                            item["Κωδικός Αιτήματος"] + "-" +
+                            DateTime.Parse(item["Ημερομηνία Εγκρίσεως ΧΧΧΧ"].ToString()).ToString("dd-MM-yyyy");
+                    }
+                }
+            }
+        }
+        private void SetEpitropiLS(SPListItem item)
+        {
+            if (item["Ημ/νία Εγκρίσεως ΧΧΧΧ (ΛΣ)"] != null)
+            {
+                //thisItem["Κωδικός ΕΣΕΚ (ΛΣ)"] = "";
+                item["epitropiLS"] = "Y";
+            }
+            else if (item["Ημ/νία λήψης απόφασης ΧΧΧΧ (ΛΣ)"] != null)
+            {
+                //thisItem["Κωδικός ΕΣΕΚ (ΛΣ)"] = "";
+                item["epitropiLS"] = "E";
+            }
+            else
+            {
+                //thisItem["Κωδικός ΕΣΕΚ (ΛΣ)"] = "NA";
+                item["epitropiLS"] = "NA";
+            }
+
+            if (item["Status ΔΠΧΠ (ΛΣ)"] != null)
+            {
+                if (item["Status ΔΠΧΠ (ΛΣ)"].ToString().Contains("ΧΧΧΧ ΕΓΚΕΚΡΙΜΕΝΟ"))
+                {
+                    //FYI:issue 274
+                    if (item["Ημ/νία Εγκρίσεως ΧΧΧΧ (ΛΣ)"] == null)
+                        item["Ημ/νία Εγκρίσεως ΧΧΧΧ (ΛΣ)"] = DateTime.Today;
+
+                    if (item["Ημ/νία Εγκρίσεως ΧΧΧΧ (ΛΣ)"] != null)
+                    {
+                        item["Αρ.Πρωτ. Εγκρίσεως ΧΧΧΧ (ΛΣ)"] =
+                            item["Κωδικός Αιτήματος πελάτη (ΛΣ)"] + "-" +
+                            DateTime.Parse(item["Ημ/νία Εγκρίσεως ΧΧΧΧ (ΛΣ)"].ToString()).ToString("dd-MM-yyyy");
+                    }
+                }
+            }
+
+        }
+
+        private void SetAxiologisiNP(SPListItem item)
+        {
+            bool statusChanged = this.StatusChanged(item, true);
+
+            if (statusChanged && item["Status Υποβολής"].ToString() == "ΠΡΟΣ ΑΞΙΟΛΟΓΗΣΗ")
+            { 
+                item["AxiologisiDate"] = DateTime.Today; 
+            }
+        }
+        
+        private void SetHmeromhniaEgkrishsMD(SPListItem item)
+        {
+
+            if (item["status_x0020__x0020__x039c__x039"].ToString() == "ΕΛΕΓΜΕΝΟ ΠΡΟΣ ΧΧΧΧ" ||
+                 item["status_x0020__x0020__x039c__x039"].ToString() == "ΕΛΕΓΜΕΝΟ ΠΡΟΣ ΧΧΧΧ") // Status monadas diaxeirishs
+            { item["imerominiaegkrisismd"] = DateTime.Now; }
+            else
+            { item["imerominiaegkrisismd"] = null; }
+        }
+
+        private void SetHmeromhniaEgkrishsMDLS(SPListItem item)
+        {
+
+            if (item["fpStatusMD"].ToString().Split('#')[1].Equals("ΕΛΕΓΜΕΝΟ ΠΡΟΣ ΧΧΧΧ")) // Status monadas diaxeirishs
+            { item["fpHmerominiaEkgrisisMD"] = DateTime.Now; }
+            else
+            { item["fpHmerominiaEkgrisisMD"] = null; }
+        }
+
+        private void SetAxiologisiLS(SPListItem item)
+        {
+            bool statusChanged = this.StatusChanged(item, false);
+
+            if (statusChanged && item["Status Υποβολής (ΛΣ)"].ToString().Split('#')[1].Equals("ΠΡΟΣ ΑΞΙΟΛΟΓΗΣΗ"))
+            {
+                item["fpAxiologisiDate"] = DateTime.Today;
+            }
+        }
+
+        bool StatusChanged(SPListItem item, bool nomikaItem)
+        {
+            SPListItemVersion currentVersion = item.Versions[0];
+            string currentVersionStatus = nomikaItem ? currentVersion["Status Υποβολής"].ToString() : currentVersion["Status Υποβολής (ΛΣ)"].ToString().Split('#')[1];
+            
+            SPListItemVersion previousVersion = item.Versions.Count > 1 ? item.Versions[1] : null;
+            if (previousVersion != null)
+            {
+                string previousVersionStatus = nomikaItem ? previousVersion["Status Υποβολής"].ToString()
+                                                                : previousVersion["Status Υποβολής (ΛΣ)"].ToString().Split('#')[1];
+
+                if (currentVersionStatus.Equals(previousVersionStatus, StringComparison.CurrentCultureIgnoreCase))
+                    return false;
+                else
+                    return true;
+            }
+
+            return false;
+        }
+
+        private string GetRequestCode(SPListItem listitem)
+        {
+            string res = "";
+            //string tmp = DateTime.Parse(listitem["dtCreated"].ToString()).ToString("yyyyMMdd");
+            
+            res += DateTime.Parse(listitem["Created"].ToString()).ToString("yyyyMMdd");
+            res += "-";
+            res += listitem["Κωδικός Καταστήματος"].ToString().Substring(0, 3);
+            res += "-";
+            res += listitem["ΑΦΜ"].ToString();
+            res += "-";
+            res += listitem["CDI Πελάτη"].ToString();
+            res += "-";
+            res += listitem["Νόμισμα"].ToString();
+            res += "-";
+            res += listitem["Group"].ToString();
+            return res;
+        }
+        private string GetRequestCodePhysicalPersons(SPListItem listitem)
+        {
+            string res = "";
+
+            res += "AB";
+            res += "-";
+            res += listitem["ΑΦΜ Πελάτη (ΛΣ)"].ToString();
+            res += "-";
+            res += DateTime.Parse(listitem["Created"].ToString()).ToString("yyyyMMdd");
+            res += "-";
+            res += CanonicalID(listitem.ID);
+            return res;
+        }
+        private string CanonicalID(int id)
+        {
+            return id.ToString().PadLeft(8, '0');
+        }
+        private string GetAEISCode(SPListItem listitem, string epitropi)
+        {
+            string res = "";
+
+            res += listitem["Κωδικός Καταστήματος"].ToString().Substring(0, 3);
+            res += listitem["ΑΦΜ"].ToString();
+            res += DateTime.Parse(listitem["Created"].ToString()).ToString("yyMMdd");
+            
+            if(epitropi == "Y")
+            {
+                res += DateTime.Parse(listitem["Ημερομηνία Εγκρίσεως ΧΧΧΧ"].ToString()).ToString("yyMMdd");
+            }
+
+            if (epitropi == "E")
+            {
+                res += DateTime.Parse(listitem["Ημερομηνία λήψης απόφασης ΧΧΧΧ"].ToString()).ToString("yyMMdd");
+            }
+            
+            res += listitem["Group"].ToString();
+
+            return res;
+        }
+        private string GetShortAEISCode(SPListItem listitem, string epitropi)
+        {
+            string res = "";
+
+            res += DateTime.Parse(listitem["Created"].ToString()).ToString("yyMMdd");
+            
+            if (epitropi == "Y")
+            {
+                res += DateTime.Parse(listitem["Ημερομηνία Εγκρίσεως ΧΧΧΧ"].ToString()).ToString("yyMMdd");
+            }
+
+            if (epitropi == "E")
+            {
+                res += DateTime.Parse(listitem["Ημερομηνία λήψης απόφασης ΧΧΧΧ"].ToString()).ToString("yyMMdd");
+            }
+
+            res += listitem["Group"].ToString();
+
+            return res;
+        }
+        private void SetItemFolder(SPItemEventProperties properties)
+        {
+            //http://think4code.blogspot.gr/2012/03/move-list-item-splistitem-to-sub-folder.html
+
+            string branchfield = "Κωδικός Καταστήματος"; 
+
+            SPListItem thisItem = properties.ListItem;
+            try {
+
+                using (SPWeb web = properties.OpenWeb())
+                {
+                    SPList list = web.Lists["AITHMATA"];
+                            
+                    if (properties.List.Title == list.Title)
+                    {
+                        foreach (SPFolder folder in properties.List.RootFolder.SubFolders)
+                        {
+                            if (folder.Name == thisItem[branchfield].ToString())
+                            {
+                                if (!thisItem.Url.Contains(thisItem[branchfield].ToString()))
+                                {
+                                    SPFile listitemFile = web.GetFile(thisItem.Url);
+
+                                    string NewDestinationUrl =
+                                        listitemFile.Url.Replace(list.RootFolder.Url.ToString(),
+                                        list.RootFolder.Url.ToString() + "/" +
+                                        thisItem[branchfield].ToString());
+
+
+                                    //Always put the item to branch folder user selected at form
+                                    NewDestinationUrl =
+                                        listitemFile.Url.Replace(listitemFile.Url.ToString(),
+                                        list.RootFolder.Url.ToString() + "/" +
+                                        thisItem[branchfield].ToString() + "/" + listitemFile.Name);
+                                                                        
+                                    listitemFile.MoveTo(NewDestinationUrl);
+
+                                    //PG request
+                                    //Log(properties, "ΝΠ: " + thisItem[branchfield].ToString() + " | " + thisItem["Κωδικός Αιτήματος"].ToString()); 
+                                    
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception x) { Log(properties, thisItem["Κωδικός Αιτήματος"].ToString() + " | " + thisItem.ID + " | " + thisItem[branchfield] + " | " + properties.UserLoginName + " | SetItemFolder: " + x.Message); }
+        }
+        private void SetItemFolderPhysicalPersons(SPItemEventProperties properties)
+        {
+            //http://think4code.blogspot.gr/2012/03/move-list-item-splistitem-to-sub-folder.html
+
+            string branchfield = "Κωδικός Καταστήματος-Δ/νσης (ΛΣ)";
+
+            SPListItem thisItem = properties.ListItem;
+            try
+            {
+                using (SPWeb web = properties.OpenWeb())
+                {
+                    SPList list = web.Lists["AITHMATA"];
+
+                    if (properties.List.Title == list.Title)
+                    {
+                        string foldername = thisItem[branchfield].ToString().Split('#')[1];
+                        foreach (SPFolder folder in properties.List.RootFolder.SubFolders)
+                        {
+                            if (folder.Name == foldername)
+                            {
+                                if (!thisItem.Url.Contains(foldername))
+                                {
+                                    SPFile listitemFile = web.GetFile(thisItem.Url);
+
+                                    string NewDestinationUrl =
+                                        listitemFile.Url.Replace(listitemFile.Url.ToString(),
+                                        list.RootFolder.Url.ToString() + "/" +
+                                        foldername + "/" + listitemFile.Name);
+
+                                    listitemFile.MoveTo(NewDestinationUrl);
+
+                                    //PG request
+                                    //Log(properties, "ΦΠ: " + thisItem[branchfield].ToString() + " | " + thisItem["Κωδικός Αιτήματος πελάτη (ΛΣ)"].ToString());
+
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception x) { Log(properties, thisItem["Κωδικός Αιτήματος πελάτη (ΛΣ)"].ToString() + " | " + thisItem.ID  + " | " + thisItem[branchfield] + " | " + properties.UserLoginName + " | SetItemFolderPhysicalPersons: " + x.Message); }
+        }
+        static void Log(SPItemEventProperties properties, string msg)
+        {
+            Log("", "Error", "Event Receiver 1", properties, msg);
+        }
+        static void Log2File(string filepath, string msg)
+        {
+            string line = DateTime.Now.ToString("yyyy.MM.dd HH:mm:ss") + " | " + msg;
+            System.IO.StreamWriter sw = null;
+
+            try
+            {
+                sw = new System.IO.StreamWriter(filepath, true);
+                sw.WriteLine(line);
+                sw.Flush();
+            }
+            catch
+            { }
+            finally { if (sw != null) { sw.Close(); } }
+        }
+
+        /// <summary>
+        /// An item is being deleted
+        /// </summary>
+        public override void ItemDeleting(SPItemEventProperties properties)
+        {
+            if (properties.ListTitle == "AITHMATA")
+            {
+                Log(null, "Info", "ER-SQL", properties, string.Format("CodeGenER-ItemDeleting, ID:{0}", properties.ListItemId));
+
+                DeleteReportData(properties);
+            }
+        }
+
+        void DeleteReportData(SPItemEventProperties properties)
+        {
+            SPListItem currentItem = null;
+
+            try
+            {
+                SPWeb web = properties.OpenWeb();
+                string siteUrl = web.Url.ToLower();
+
+                currentItem = properties.ListItem;
+
+                var dbHelper = new DBHelper(web, currentItem);
+                //FYI: Insert into Aitimata history
+                dbHelper.InsertSQLHistory(HistoryAction.Delete);
+                //FYI: Delete item from Aitimata
+                dbHelper.DeleteSQLAitima();
+            }
+            catch (Exception ex)
+            {
+                string message = currentItem == null ? ex.Message : string.Format("ID:{0}, {1}", currentItem.ID, ex.Message);
+                Log(null, "Error", "ER-SQL", properties, string.Format("DeleteReportData, {0}", message));
+            }
+
+        }
+
+    }
+}
