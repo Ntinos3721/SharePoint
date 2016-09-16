@@ -1,0 +1,291 @@
+using ReportApplication.Common;
+using ReportApplication.DataAccess;
+using ReportApplication.Managers;
+using ReportApplication.Models;
+using ReportApplication.Reports;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Web;
+using System.Web.UI;
+using System.Web.UI.WebControls;
+using Telerik.Web.UI;
+
+namespace ReportApplication
+{
+    public class DPXPPage : BaseReportPage
+    {
+        protected decimal DefaultAverage = 0.2m;
+        protected const string AverageLiteral = "ΜΕΣΟΣ ΟΡΟΣ";
+        protected DateTime fakeDate = new DateTime(2030, 01, 01);
+        
+        protected void LoadMD()
+        {
+            Panel monadesPanel = MasterPage.MonadaDiaxMultiSelectionPanel;
+            if (monadesPanel != null) monadesPanel.Visible = true;
+
+            RadAutoCompleteBox box = MasterPage.MonadaDiaxMultiSelection;
+            var manager = new ListOfValuesManager(DataContext);
+            List<string> md = manager.GetMD();
+
+            var list = new List<ListValueItem<string>>();
+            foreach (string item in md)
+            {
+                if (!string.IsNullOrWhiteSpace(item))
+                    list.Add(new ListValueItem<string>(item, item));
+            }
+
+            box.DataSource = list.OrderBy(o => o.Text);
+            box.DataValueField = "Value";
+            box.DataTextField = "Text";
+            box.DataBind();
+        }
+
+        protected void LoadKatastimata()
+        {
+            Panel KatastimataPanel = MasterPage.KatastimataMultiSelectionPanel;
+            if (KatastimataPanel != null) KatastimataPanel.Visible = true;
+
+            RadAutoCompleteBox box = MasterPage.KatastimaMultiSelection;
+            var manager = new ListOfValuesManager(DataContext);
+            List<string> katstimata = manager.GetKatastimata();
+
+            var list = new List<ListValueItem<string>>();
+            foreach (string item in katstimata)
+            {
+                if (!string.IsNullOrWhiteSpace(item))
+                    list.Add(new ListValueItem<string>(item, item));
+            }
+
+            box.DataSource = list.OrderBy(o => o.Text);
+            box.DataValueField = "Value";
+            box.DataTextField = "Text";
+            box.DataBind();
+        }
+
+        protected List<string> GetMonadesDiaxeirisis()
+        {
+            var mds = new List<string>();
+
+            string input = MasterPage.MonadaDiaxMultiSelection.Text;
+            if (string.IsNullOrWhiteSpace(input))
+                return mds;
+
+            string[] data = input.Split(new string[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (string s in data)
+            {
+                if (!string.IsNullOrWhiteSpace(s))
+                    mds.Add(s.Trim());
+            }
+
+            return mds;
+        }
+
+        protected List<string> GetKatastima()
+        {
+            var katastimata = new List<string>();
+
+            string input = MasterPage.KatastimaMultiSelection.Text;
+            if (string.IsNullOrWhiteSpace(input))
+                return katastimata;
+
+            string[] data = input.Split(new string[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (string s in data)
+            {
+                if (!string.IsNullOrWhiteSpace(s))
+                    katastimata.Add(s.Trim());
+            }
+
+            return katastimata;
+        }
+
+        protected List<string> GetMDstatusesForMonadaDiax(string epitropi)
+        {
+            if (epitropi == "YETS")
+                return new List<string>() { StatusMD.ELEGMENO_PROS_YETS };
+            else if (epitropi == "EETS")
+                return new List<string>() { StatusMD.ELEGMENO_PROS_EETS };
+            else
+                return new List<string>() { StatusMD.ELEGMENO_PROS_YETS, StatusMD.ELEGMENO_PROS_EETS };
+        }
+        protected List<string> GetMDstatusesForDPXP(string epitropi)
+        {
+            if (epitropi == "YETS")
+                return new List<string>() { StatusMD.ELEGMENO_PROS_YETS };
+            else if (epitropi == "EETS")
+                return new List<string>() { StatusMD.ELEGMENO_PROS_EETS };
+            else
+                return new List<string>() { StatusMD.ELEGMENO_PROS_YETS, StatusMD.ELEGMENO_PROS_EETS };
+        }
+
+        protected List<string> GetDpxpStatusesForDPXP(string epitropi)
+        {
+            if (epitropi == "YETS")
+                return new List<string>() { StatusDPXP.YETS_EGEKRIMENO };
+            else if (epitropi == "EETS")
+                return new List<string>() { StatusDPXP.EETS_YPO_EXETASI };
+            else
+                return new List<string>() { StatusDPXP.YETS_EGEKRIMENO, StatusDPXP.EETS_YPO_EXETASI };
+        }
+
+        protected Func<YpovoliEkkatharisiDto, DateTime, bool> resolveEkkathDate = (x, dt) =>
+        {
+            if (x.EkkathStatusDPXP == StatusDPXP.EETS_EGEKRIMENO || x.EkkathStatusDPXP == StatusDPXP.EETS_EGEKRIMENO_YPO_OROUS)
+            {
+                return x.EkkathHmerominiaLipsisApofasisEETS.HasValue && x.EkkathHmerominiaEkkathSinallagis.HasValue && x.EkkathHmerominiaEkkathSinallagis.Value == dt;
+            }
+            else if (x.EkkathStatusDPXP == StatusDPXP.YETS_EGEKRIMENO)
+            {
+                return x.EkkathHmerominiaEgkrisisYETS.HasValue && x.EkkathHmerominiaEkkathSinallagis.HasValue && x.EkkathHmerominiaEkkathSinallagis.Value == dt;
+            }
+
+            return false;
+        };
+
+        protected Func<YpovoliEkkatharisiDto, decimal, EkkatharisiInfo> resolveEkkathDateDiff = (x, avg) =>
+        {
+            if (x.EkkathStatusDPXP == StatusDPXP.EETS_EGEKRIMENO || x.EkkathStatusDPXP == StatusDPXP.EETS_EGEKRIMENO_YPO_OROUS)
+            {
+                return new EkkatharisiInfo()
+                {
+                    SPID = x.SPID,
+                    Code = x.Code,
+                    Url = x.Url,
+                    Customer = x.Customer,
+                    MonadaDiax = x.MonadaDiax,
+                    Katastima = x.Katastima,
+                    EntryDate = x.EkkathHmerominiaLipsisApofasisEETS,
+                    ExitDate = x.EkkathHmerominiaEkkathSinallagis,
+                    DateDiff = x.EkkathHmerominiaEkkathSinallagis.Value.Subtract(x.EkkathHmerominiaLipsisApofasisEETS.Value).Days == 0 ?
+                                              avg : x.EkkathHmerominiaEkkathSinallagis.Value.Subtract(x.EkkathHmerominiaLipsisApofasisEETS.Value).Days
+                };
+            }
+            else if (x.EkkathStatusDPXP == StatusDPXP.YETS_EGEKRIMENO)
+            {
+                return new EkkatharisiInfo()
+                {
+                    SPID = x.SPID,
+                    Code = x.Code,
+                    Customer = x.Customer,
+                    MonadaDiax = x.MonadaDiax,
+                    Katastima = x.Katastima,
+                    EntryDate = x.EkkathHmerominiaEgkrisisYETS,
+                    ExitDate = x.EkkathHmerominiaEkkathSinallagis,
+                    DateDiff = x.EkkathHmerominiaEkkathSinallagis.Value.Subtract(x.EkkathHmerominiaEgkrisisYETS.Value).Days == 0 ?
+                                              avg : x.EkkathHmerominiaEkkathSinallagis.Value.Subtract(x.EkkathHmerominiaEgkrisisYETS.Value).Days
+                };
+            }
+
+            return new EkkatharisiInfo() { DateDiff = 0m };
+        };
+
+        protected void ApplyAverageColumnFormat(GridItem gridItem, string dataField, string hyperlinkID = null, string labelID = null)
+        {
+            GridDataItem dataItem = (GridDataItem)gridItem;
+            if (dataItem.OwnerTableView.Columns.FindByUniqueNameSafe(dataField) == null) return;
+
+            GridTableCell cell = dataItem[dataField] as GridTableCell;
+            if (cell != null)
+            {
+                if (string.IsNullOrWhiteSpace(hyperlinkID) && string.IsNullOrWhiteSpace(labelID))
+                {
+                    SetStringFormat(cell);
+                }
+                else
+                {
+                    HyperLink hl = dataItem[dataField].FindControl(hyperlinkID) as HyperLink;
+                    if (hl != null) SetHyperlinkFormat(hl);
+
+                    Label lb = dataItem[dataField].FindControl(labelID) as Label;
+                    if (lb != null) SetLabelFormat(lb);
+                }
+            }
+        }
+
+        void SetStringFormat(GridTableCell cell)
+        {
+            string textToParse = cell.Text;
+
+            decimal result = 0m;
+            if (decimal.TryParse(textToParse, out result))
+            {
+                string formattedNumber = string.Format("{0:##,#0.0}", result, System.Globalization.CultureInfo.InvariantCulture);
+                cell.Text = formattedNumber;
+                cell.HorizontalAlign = HorizontalAlign.Center;
+            }
+        }
+
+        void SetHyperlinkFormat(HyperLink hl)
+        {
+            string textToParse = hl.Text;
+
+            decimal result = 0m;
+            if (decimal.TryParse(textToParse, out result))
+            {
+                string formattedNumber = string.Format("{0:##,#0.0}", result, System.Globalization.CultureInfo.InvariantCulture);
+                hl.Text = formattedNumber;
+            }
+        }
+
+        void SetLabelFormat(Label lb)
+        {
+            string textToParse = lb.Text;
+
+            decimal result = 0m;
+            if (decimal.TryParse(textToParse, out result))
+            {
+                string formattedNumber = string.Format("{0:##,#0.0}", result, System.Globalization.CultureInfo.InvariantCulture);
+                lb.Text = formattedNumber;
+            }
+        }
+
+        protected void CreateAverageFooter(GridItem gridItem, DateTime dateToCheck)
+        {
+            GridDataItem item = (GridDataItem)gridItem;
+            TableCell reportDateCell = item["ReportDate"];
+            if (reportDateCell != null)
+            {
+                DateTime result;
+                if (DateTime.TryParse(reportDateCell.Text, out result))
+                {
+                    if (result.Equals(dateToCheck))
+                    {
+                        reportDateCell.Text = AverageLiteral;
+                        reportDateCell.HorizontalAlign = HorizontalAlign.Right;
+
+                        foreach (TableCell cell in item.Cells)
+                        {
+                            cell.BackColor = System.Drawing.ColorTranslator.FromHtml("#d8dfe5");
+                        }
+                    }
+                }
+            }
+        }
+
+        protected List<string> GetStatusesButCancelled(Type type)
+        {
+            var values = this.GetPublicConstants(type);
+
+            return values.Any() ?
+                this.GetPublicConstants(type)
+                    .Where(x => x.GetValue(x).ToString() != "ΑΚΥΡΩΜΕΝΟ")
+                    .Select(s => s.GetValue(s).ToString()).ToList() : new List<string>();
+        }
+
+        IEnumerable<FieldInfo> GetPublicConstants(Type type)
+        {
+            FieldInfo[] infos = type.GetFields(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
+
+            return infos.Where(x => x.IsLiteral && !x.IsInitOnly && !x.IsPrivate);
+        }
+
+        protected bool IsAeisEnabled
+        {
+            get
+            {
+                return MasterPage.AEIScheckbox.Checked;
+            }
+        }
+    }
+}
