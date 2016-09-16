@@ -1,0 +1,34 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace ReportApplication.Common.Extensions
+{
+    public static class MoreLinqExtensions
+    {
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="TSource">e.g Aitima entity</typeparam>
+        /// <typeparam name="TKey">property e.g Kwdikos Aitimatos</typeparam>
+        /// <param name="source"></param>
+        /// <param name="keySelector"></param>
+        /// <returns></returns>
+        public static IEnumerable<TSource> DistinctBy<TSource, TKey>(this IEnumerable<TSource> source,
+            Func<TSource, TKey> keySelector)
+        {
+            HashSet<TKey> seenKeys = new HashSet<TKey>();
+            foreach (TSource element in source)
+            {
+                // New item added, so populate with distinct items my list.
+                // In our case 'element' is Aitima entity
+                if (seenKeys.Add(keySelector(element)))
+                {
+                    yield return element;
+                }
+            }
+        }
+    }
+}
