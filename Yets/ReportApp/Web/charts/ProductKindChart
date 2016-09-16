@@ -1,0 +1,84 @@
+using ReportApplication.Common;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Web.UI;
+using System.Web.UI.WebControls;
+using Telerik.Web.UI;
+
+namespace ReportApplication.Charts
+{
+    public partial class ProductKindChart : BaseReportPage
+    {
+        protected void Page_Load(object sender, EventArgs e)
+        {
+            if (!IsPostBack)
+            {
+                CreateChart();
+            }
+        }
+
+        void CreateChart()
+        {
+            var eidosQuery = DataContext.GetEgkriseisAnaEidosProiontos();
+
+            var yetsQuery = eidosQuery.Where(x => x.StatusDPXP == StatusDPXP.YETS_EGEKRIMENO);
+            var eetsQuery = eidosQuery.Where(x => x.StatusDPXP == StatusDPXP.EETS_EGEKRIMENO || x.StatusDPXP == StatusDPXP.EETS_EGEKRIMENO_YPO_OROUS);
+
+            // ==================== YETS ===================================== //
+            var yetsCS = ColumnChartHelper.CreateColumnSeries("ΥΕΤΣ WF", "N", System.Drawing.Color.LightBlue);
+
+            decimal? yetsTrofima = yetsQuery.Where(x => x.EidosProiontos == ProductKind.TROFIMA_KAI_SYNAFI).Sum(s => s.IsotimoEuro);
+            decimal? yetsFarmaka = yetsQuery.Where(x => x.EidosProiontos == ProductKind.FARMAKA_KAI_SYNAFI).Sum(s => s.IsotimoEuro);
+            decimal? yetsEnergy = yetsQuery.Where(x => x.EidosProiontos == ProductKind.ENERGEIA).Sum(s => s.IsotimoEuro);
+            decimal? yetsEconomic = yetsQuery.Where(x => x.EidosProiontos == ProductKind.XRHMATO_OIKONOMIKA).Sum(s => s.IsotimoEuro);
+            decimal? yetsCompany = yetsQuery.Where(x => x.EidosProiontos == ProductKind.HMER_SYSTASIS_ETAIREIAS).Sum(s => s.IsotimoEuro);
+            decimal? yetsPagia = yetsQuery.Where(x => x.EidosProiontos == ProductKind.AFORA_AGORA_PAGIWN).Sum(s => s.IsotimoEuro);
+            decimal? yetsEpix = yetsQuery.Where(x => x.EidosProiontos == ProductKind.LEITOURGIKH_DAPANH_EPIX).Sum(s => s.IsotimoEuro);
+            decimal? yetsOther = yetsQuery.Where(x => x.EidosProiontos == ProductKind.OTHER).Sum(s => s.IsotimoEuro);
+
+            ColumnChartHelper.CreateCategorySeries(yetsCS, yetsTrofima);
+            ColumnChartHelper.CreateCategorySeries(yetsCS, yetsFarmaka);
+            ColumnChartHelper.CreateCategorySeries(yetsCS, yetsEnergy);
+            ColumnChartHelper.CreateCategorySeries(yetsCS, yetsEconomic);
+            ColumnChartHelper.CreateCategorySeries(yetsCS, yetsCompany);
+            ColumnChartHelper.CreateCategorySeries(yetsCS, yetsPagia);
+            ColumnChartHelper.CreateCategorySeries(yetsCS, yetsEpix);
+            ColumnChartHelper.CreateCategorySeries(yetsCS, yetsOther);
+
+            // ==================== EETS ===================================== //
+            var eetsCS = ColumnChartHelper.CreateColumnSeries("ΕΕΤΣ WF", "N", System.Drawing.Color.Blue);
+
+            decimal? eetsTrofima = eetsQuery.Where(x => x.EidosProiontos == ProductKind.TROFIMA_KAI_SYNAFI).Sum(s => s.IsotimoEuro);
+            decimal? eetsFarmaka = eetsQuery.Where(x => x.EidosProiontos == ProductKind.FARMAKA_KAI_SYNAFI).Sum(s => s.IsotimoEuro);
+            decimal? eetsEnergy = eetsQuery.Where(x => x.EidosProiontos == ProductKind.ENERGEIA).Sum(s => s.IsotimoEuro);
+            decimal? eetsEconomic = eetsQuery.Where(x => x.EidosProiontos == ProductKind.XRHMATO_OIKONOMIKA).Sum(s => s.IsotimoEuro);
+            decimal? eetsCompany = eetsQuery.Where(x => x.EidosProiontos == ProductKind.HMER_SYSTASIS_ETAIREIAS).Sum(s => s.IsotimoEuro);
+            decimal? eetsPagia = eetsQuery.Where(x => x.EidosProiontos == ProductKind.AFORA_AGORA_PAGIWN).Sum(s => s.IsotimoEuro);
+            decimal? eetsEpix = eetsQuery.Where(x => x.EidosProiontos == ProductKind.LEITOURGIKH_DAPANH_EPIX).Sum(s => s.IsotimoEuro);
+            decimal? eetsOther = eetsQuery.Where(x => x.EidosProiontos == ProductKind.OTHER).Sum(s => s.IsotimoEuro);
+
+            ColumnChartHelper.CreateCategorySeries(eetsCS, eetsTrofima);
+            ColumnChartHelper.CreateCategorySeries(eetsCS, eetsFarmaka);
+            ColumnChartHelper.CreateCategorySeries(eetsCS, eetsEnergy);
+            ColumnChartHelper.CreateCategorySeries(eetsCS, eetsEconomic);
+            ColumnChartHelper.CreateCategorySeries(eetsCS, eetsCompany);
+            ColumnChartHelper.CreateCategorySeries(eetsCS, eetsPagia);
+            ColumnChartHelper.CreateCategorySeries(eetsCS, eetsEpix);
+            ColumnChartHelper.CreateCategorySeries(eetsCS, eetsOther);
+
+            ReportColumnChart.PlotArea.Series.Add(yetsCS);
+            ReportColumnChart.PlotArea.Series.Add(eetsCS);
+            // PlotArea appearance
+            ReportColumnChart.PlotArea.Appearance.FillStyle.BackgroundColor = System.Drawing.Color.Transparent;
+
+            ColumnChartHelper.BuildXAxis(ReportColumnChart, 0, "ΤΡΟΦΙΜΑ ΚΑΙ ΣΥΝΑΦΗ", "ΦΑΡΜΑΚΑ ΚΑΙ ΣΥΝΑΦΗ", "ΕΝΕΡΓΕΙΑ", "ΧΡΗΜΑΤ/ΚΑ", "ΣΥΣΤΑΣΗ ΕΤΑΙΡΕΙΑΣ", "ΠΑΓΙΑ", "ΛΕΙΤ. ΔΑΠΑΝΗ ΕΠΙΧ.", "ΑΛΛΗ");
+
+            ColumnChartHelper.BuildYAxis(ReportColumnChart);
+
+            ColumnChartHelper.SetChartTitle(ReportColumnChart, "Εγκρίσεις ανά Είδος Προϊόντος");
+            ColumnChartHelper.SetLegend(ReportColumnChart);
+        }
+    }
+}
