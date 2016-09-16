@@ -1,0 +1,130 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Globalization;
+using System.Linq;
+using System.Web;
+using System.Web.UI.WebControls;
+using Telerik.Charting.Styles;
+using Telerik.Web.Data;
+using Telerik.Web.UI;
+
+namespace ReportApplication
+{
+    public static class GridHelper
+    {
+        public static void AddBoundColumnToGrid(RadGrid rg, string headerText, string dataField, double? percentageWidth = null)
+        {
+            GridBoundColumn boundColumn;
+
+            boundColumn = new GridBoundColumn();
+            boundColumn.HeaderText = headerText;
+            boundColumn.DataField = dataField;
+            boundColumn.UniqueName = dataField;
+            boundColumn.DataType = typeof(System.String);
+
+            if (percentageWidth.HasValue)
+                boundColumn.HeaderStyle.Width = new System.Web.UI.WebControls.Unit(percentageWidth.Value, System.Web.UI.WebControls.UnitType.Percentage);
+            
+            boundColumn.AllowSorting = true;
+
+            //rg.MasterTableView.SortExpressions.AddSortExpression(AddSortExpression(dataField));
+            rg.MasterTableView.Columns.Add(boundColumn);
+        }
+
+        public static void AddDateTimeColumnToGrid(RadGrid rg, string headerText, string dataField, double? percentageWidth = null)
+        {
+            GridDateTimeColumn dateTimeColumn;
+
+            dateTimeColumn = new GridDateTimeColumn();
+            dateTimeColumn.HeaderText = headerText;
+            dateTimeColumn.DataField = dataField;
+            dateTimeColumn.UniqueName = dataField;
+            dateTimeColumn.DataFormatString = "{0:dd/MM/yyyy}";
+            dateTimeColumn.DataType = typeof(System.DateTime);
+
+            if (percentageWidth.HasValue)
+                dateTimeColumn.HeaderStyle.Width = new System.Web.UI.WebControls.Unit(percentageWidth.Value, System.Web.UI.WebControls.UnitType.Percentage);
+
+            dateTimeColumn.ItemStyle.HorizontalAlign = System.Web.UI.WebControls.HorizontalAlign.Center;
+            dateTimeColumn.AllowSorting = true;
+
+            //rg.MasterTableView.SortExpressions.AddSortExpression(AddSortExpression(dataField));
+            rg.MasterTableView.Columns.Add(dateTimeColumn);
+        }
+
+        public static void AddNumericColumnToGrid(RadGrid rg, string headerText, string dataField,
+            GridAggregateFunction function, double? percentageWidth = null)
+        {
+            GridNumericColumn decimalColumn;
+
+            decimalColumn = new GridNumericColumn();
+            decimalColumn.HeaderText = headerText;
+            decimalColumn.DataField = dataField;
+            decimalColumn.UniqueName = dataField;
+            decimalColumn.Aggregate = function;
+            decimalColumn.DataType = typeof(System.Int32);
+
+            if (percentageWidth.HasValue)
+                decimalColumn.HeaderStyle.Width = new System.Web.UI.WebControls.Unit(percentageWidth.Value, System.Web.UI.WebControls.UnitType.Percentage);
+
+            decimalColumn.ItemStyle.HorizontalAlign = System.Web.UI.WebControls.HorizontalAlign.Right;
+            decimalColumn.AllowSorting = true;
+
+            //rg.MasterTableView.SortExpressions.Add(AddSortExpression(dataField));
+            rg.MasterTableView.Columns.Add(decimalColumn);
+        }
+
+        public static void AddDecimalColumnToGrid(RadGrid rg, string headerText, string dataField, 
+            GridAggregateFunction function, double? percentageWidth = null)
+        {
+            GridNumericColumn decimalColumn;
+
+            decimalColumn = new GridNumericColumn();
+            decimalColumn.HeaderText = headerText;
+            decimalColumn.DataField = dataField;
+            decimalColumn.UniqueName = dataField;
+            decimalColumn.Aggregate = function;
+            decimalColumn.DataType = typeof(System.Decimal);
+
+            if (percentageWidth.HasValue)
+                decimalColumn.HeaderStyle.Width = new System.Web.UI.WebControls.Unit(percentageWidth.Value, System.Web.UI.WebControls.UnitType.Percentage);
+
+            decimalColumn.ItemStyle.HorizontalAlign = System.Web.UI.WebControls.HorizontalAlign.Right;
+            decimalColumn.AllowSorting = true;
+
+            //rg.MasterTableView.SortExpressions.Add(AddSortExpression(dataField));
+            rg.MasterTableView.Columns.Add(decimalColumn);
+        }
+
+        public static void AddSortExpressionToGrid(RadGrid rg, string dataField)
+        {
+            GridSortExpression expr = new GridSortExpression();
+            expr.FieldName = dataField;
+            expr.SortOrder = GridSortOrder.Ascending;
+
+            rg.MasterTableView.SortExpressions.AddSortExpression(expr);
+        }
+
+        public static void AddGroupFields(RadGrid rg, Dictionary<string,string> dataFields)
+        {
+            foreach (var item in dataFields)
+            {
+                GridGroupByExpression expression = new GridGroupByExpression();
+                GridGroupByField gridGroupByField = new GridGroupByField();
+                gridGroupByField = new GridGroupByField();
+                gridGroupByField.FieldName = item.Key;
+                gridGroupByField.HeaderText = item.Value;
+                //gridGroupByField.HeaderValueSeparator = " for current group: ";
+                //gridGroupByField.FormatString = "<strong>{0}</strong>";
+                expression.SelectFields.Add(gridGroupByField);
+                gridGroupByField = new GridGroupByField();
+                gridGroupByField.FieldName = item.Key;
+                expression.GroupByFields.Add(gridGroupByField);
+                rg.MasterTableView.GroupByExpressions.Add(expression);
+                
+            }
+        }
+        
+    }
+}
