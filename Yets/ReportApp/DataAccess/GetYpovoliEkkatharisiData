@@ -1,0 +1,158 @@
+public IQueryable<YpovoliEkkatharisiDto> GetYpovoliEkkatharisiData(List<string> katastimaStatusesYpovolis, List<string> katastimaStatusesMD,
+            List<string> monadaDiaxStatusesYpovolis, List<string> monadaDiaxStatusesMD,
+            List<string> dpxpStatusesYpovolis, List<string> dpxpStatusesMD, List<string> dpxpStatusesDPXP,
+            List<string> eetsStatusesYpovolis, List<string> eetsStatusesMD, List<string> eetsStatusesDPXP,
+            List<string> ekkatharisiStatusesYpovolis, List<string> ekkatharisiStatusesMD,
+            DateTime dateFrom, DateTime dateTo,
+            List<string> monadesDiaxeirisis, List<string> katastima,
+            List<int> aitimataTypes, decimal? defaultAverage = null) //string katastima
+        {
+
+            DateTime start = dateFrom.StartOfDay();
+            DateTime end = dateTo.EndOfDay();
+
+            var statusesYpovolis = katastimaStatusesYpovolis.Union(monadaDiaxStatusesYpovolis).Union(dpxpStatusesYpovolis).Union(eetsStatusesYpovolis).Union(ekkatharisiStatusesYpovolis).Distinct();
+            var statusesMD = katastimaStatusesMD.Union(monadaDiaxStatusesMD).Union(dpxpStatusesMD).Union(eetsStatusesMD).Union(ekkatharisiStatusesMD).Distinct();
+            var statusesDPXP = dpxpStatusesDPXP.Union(eetsStatusesDPXP).Distinct();
+
+            var katastimaQuery = from item in Aitimatas.AsNoTracking()
+                                 where katastimaStatusesYpovolis.Contains(item.StatusYpovolis)
+                                 && katastimaStatusesMD.Contains(item.statusMD)
+                                 && item.HmerominiaAxiologisis >= start && item.HmerominiaAxiologisis <= end
+                                 select new
+                                 {
+                                     ID = item.ID,
+                                     SPID = item.SPID,
+                                     MonadaDiax = item.MonadaDiax,
+                                     Katastima = item.Katastima,
+                                     HmerominiaYpovolis = item.HmerominiaYpovolis,
+                                     HmerominiaAxiologisis = item.HmerominiaAxiologisis
+                                 };
+
+            if (monadesDiaxeirisis != null && monadesDiaxeirisis.Any()) katastimaQuery = katastimaQuery.Where(x => monadesDiaxeirisis.Contains(x.MonadaDiax));
+            if (katastima != null && katastima.Any()) katastimaQuery = katastimaQuery.Where(x => katastima.Contains(x.Katastima));
+
+            var mdQuery = from item in Aitimatas.AsNoTracking()
+                          where monadaDiaxStatusesYpovolis.Contains(item.StatusYpovolis)
+                          && monadaDiaxStatusesMD.Contains(item.statusMD)
+                          && item.HmerominiaEgkrisisMD >= start && item.HmerominiaEgkrisisMD <= end
+                          select new
+                          {
+                              ID = item.ID,
+                              SPID = item.SPID,
+                              MonadaDiax = item.MonadaDiax,
+                              Katastima = item.Katastima,
+                              HmerominiaAxiologisis = item.HmerominiaAxiologisis,
+                              HmerominiaEgkrisisMD = item.HmerominiaEgkrisisMD
+                          };
+
+            if (monadesDiaxeirisis != null && monadesDiaxeirisis.Any()) mdQuery = mdQuery.Where(x => monadesDiaxeirisis.Contains(x.MonadaDiax));
+            if (katastima != null && katastima.Any()) mdQuery = mdQuery.Where(x => katastima.Contains(x.Katastima));
+
+
+            var dpxpQuery = from item in Aitimatas.AsNoTracking()
+                            where dpxpStatusesYpovolis.Contains(item.StatusYpovolis)
+                            && dpxpStatusesMD.Contains(item.statusMD)
+                            && dpxpStatusesDPXP.Contains(item.statusDPXP)
+                            && item.HmerominiaApostolisEgkrisis >= start && item.HmerominiaApostolisEgkrisis <= end
+                            select new
+                            {
+                                ID = item.ID,
+                                SPID = item.SPID,
+                                MonadaDiax = item.MonadaDiax,
+                                Katastima = item.Katastima,
+                                HmerominiaEgkrisisMD = item.HmerominiaEgkrisisMD,
+                                HmerominiaApostolisEgkrisis = item.HmerominiaApostolisEgkrisis
+                            };
+
+            if (monadesDiaxeirisis != null && monadesDiaxeirisis.Any()) dpxpQuery = dpxpQuery.Where(x => monadesDiaxeirisis.Contains(x.MonadaDiax));
+            if (katastima != null && katastima.Any()) dpxpQuery = dpxpQuery.Where(x => katastima.Contains(x.Katastima));
+
+            var eetsQuery = from item in Aitimatas.AsNoTracking()
+                            where eetsStatusesYpovolis.Contains(item.StatusYpovolis)
+                            && eetsStatusesMD.Contains(item.statusMD)
+                            && eetsStatusesDPXP.Contains(item.statusDPXP)
+                            && item.HmerominiaLipsisApofasisEETS >= start && item.HmerominiaLipsisApofasisEETS <= end
+                            select new
+                            {
+                                ID = item.ID,
+                                SPID = item.SPID,
+                                MonadaDiax = item.MonadaDiax,
+                                Katastima = item.Katastima,
+                                HmerominiaApostolisEgkrisis = item.HmerominiaApostolisEgkrisis,
+                                HmerominiaLipsisApofasisEETS = item.HmerominiaLipsisApofasisEETS
+                            };
+
+            if (monadesDiaxeirisis != null && monadesDiaxeirisis.Any()) eetsQuery = eetsQuery.Where(x => monadesDiaxeirisis.Contains(x.MonadaDiax));
+            if (katastima != null && katastima.Any()) eetsQuery = eetsQuery.Where(x => katastima.Contains(x.Katastima));
+
+            var ekkatharisiQuery = from item in Aitimatas.AsNoTracking()
+                                    where ekkatharisiStatusesYpovolis.Contains(item.StatusYpovolis)
+                                    && ekkatharisiStatusesMD.Contains(item.statusMD)
+                                    && item.HmerominiaEkkathSinallagis >= start && item.HmerominiaEkkathSinallagis <= end
+                                    select new
+                                    {
+                                        ID = item.ID,
+                                        SPID = item.SPID,
+                                        MonadaDiax = item.MonadaDiax,
+                                        Katastima = item.Katastima,
+                                        StatusDPXP = item.statusDPXP,
+                                        HmerominiaEkkathSinallagis = item.HmerominiaEkkathSinallagis,
+                                        HmerominiaLipsisApofasisEETS = item.HmerominiaLipsisApofasisEETS,
+                                        HmerominiaEgkrisisYETS = item.HmerominiaEgkrisisYETS
+                                    };
+
+            if (monadesDiaxeirisis != null && monadesDiaxeirisis.Any()) ekkatharisiQuery = ekkatharisiQuery.Where(x => monadesDiaxeirisis.Contains(x.MonadaDiax));
+            if (katastima != null && katastima.Any()) ekkatharisiQuery = ekkatharisiQuery.Where(x => katastima.Contains(x.Katastima));
+
+            var query = from item in Aitimatas.AsNoTracking()
+                        join katast in katastimaQuery on item.ID equals katast.ID into katastimaGroup
+                        from kat in katastimaGroup.DefaultIfEmpty()
+                        join monadaDiax in mdQuery on item.ID equals monadaDiax.ID into monadaDiaxGroup
+                        from md in monadaDiaxGroup.DefaultIfEmpty()
+                        join dpxp in dpxpQuery on item.ID equals dpxp.ID into dpxpGroup
+                        from dp in dpxpGroup.DefaultIfEmpty()
+                        join eets in eetsQuery on item.ID equals eets.ID into eetsGroup
+                        from ee in eetsGroup.DefaultIfEmpty()
+                        join ekkatharisi in ekkatharisiQuery on item.ID equals ekkatharisi.ID into ekkatharisiGroup
+                        from ekkath in ekkatharisiGroup.DefaultIfEmpty()
+                        where item.Code != null && item.Code != ""
+                        && aitimataTypes.Contains(item.AitimaType.Value)
+                        && statusesYpovolis.Contains(item.StatusYpovolis)
+                        && statusesMD.Contains(item.statusMD)
+                        //--->FYI: At katastima, MD, Ekkatharisi columns there is no dpxp status defined. Do we need? 
+                        //         && statusesDPXP.Contains(item.statusDPXP)
+                        && 
+                        (
+                            (item.HmerominiaAxiologisis >= start && item.HmerominiaAxiologisis <= end)
+                            || (item.HmerominiaEgkrisisMD >= start && item.HmerominiaEgkrisisMD <= end)
+                            || (item.HmerominiaApostolisEgkrisis >= start && item.HmerominiaApostolisEgkrisis <= end)
+                            || (item.HmerominiaLipsisApofasisEETS >= start && item.HmerominiaLipsisApofasisEETS <= end)
+                            || (item.HmerominiaEkkathSinallagis >= start && item.HmerominiaEkkathSinallagis <= end)
+                        )
+                        select new YpovoliEkkatharisiDto
+                        {
+                            SPID = item.SPID,
+                            MonadaDiax = item.MonadaDiax,
+                            Katastima = item.Katastima,
+                            KatastimaHmerominiaYpovolis = System.Data.Entity.DbFunctions.TruncateTime(kat.HmerominiaYpovolis),
+                            KatastimaHmerominiaAxiologisis = System.Data.Entity.DbFunctions.TruncateTime(kat.HmerominiaAxiologisis),
+                            MDHmerominiaEgkrisisMD = System.Data.Entity.DbFunctions.TruncateTime(md.HmerominiaEgkrisisMD),
+                            MDHmerominiaAxiologisis = System.Data.Entity.DbFunctions.TruncateTime(md.HmerominiaAxiologisis),
+                            DPXPHmerominiaApostolisEgkrisis = System.Data.Entity.DbFunctions.TruncateTime(dp.HmerominiaApostolisEgkrisis),
+                            DPXPHmerominiaEgkrisisMD = System.Data.Entity.DbFunctions.TruncateTime(dp.HmerominiaEgkrisisMD),
+                            EETSHmerominiaLipsisApofasisEETS = System.Data.Entity.DbFunctions.TruncateTime(ee.HmerominiaLipsisApofasisEETS),
+                            EETSHmerominiaApostolisEgkrisis = System.Data.Entity.DbFunctions.TruncateTime(ee.HmerominiaApostolisEgkrisis),
+                            EkkathStatusDPXP = ekkath.StatusDPXP,
+                            EkkathHmerominiaEkkathSinallagis = System.Data.Entity.DbFunctions.TruncateTime(ekkath.HmerominiaEkkathSinallagis),
+                            EkkathHmerominiaLipsisApofasisEETS = System.Data.Entity.DbFunctions.TruncateTime(ekkath.HmerominiaLipsisApofasisEETS),
+                            EkkathHmerominiaEgkrisisYETS = System.Data.Entity.DbFunctions.TruncateTime(ekkath.HmerominiaEgkrisisYETS)
+                        };
+
+            if (monadesDiaxeirisis != null && monadesDiaxeirisis.Any()) 
+                query = query.Where(x => monadesDiaxeirisis.Contains(x.MonadaDiax));
+            if (katastima != null && katastima.Any())
+                query = query.Where(x => katastima.Contains(x.Katastima));
+
+            return query;
+        }
