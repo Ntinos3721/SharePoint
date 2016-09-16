@@ -1,0 +1,94 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+
+namespace ReportApplication.Managers
+{
+    internal static class CacheKeys
+    {
+        internal const string MD_KEY = "_MDKey";
+        internal const string KATASTHMA_KEY = "_KatastimaKey";
+    }
+
+    internal static class CacheManager
+    {
+        const int CACHE_PERIOD_IN_MINUTES = 5;
+
+        /// <summary>
+        /// Insert value into the cache using
+        /// appropriate name/value pairs
+        /// </summary>
+        /// <typeparam name="T">Type of cached item</typeparam>
+        /// <param name="o">Item to be cached</param>
+        /// <param name="key">Name of item</param>
+        public static void Add<T>(T o, string key)
+        {
+            // NOTE: Apply expiration parameters as you see fit.
+            // I typically pull from configuration file.
+
+            // In this example, I want an absolute
+            // timeout so changes will always be reflected
+            // at that time. Hence, the NoSlidingExpiration.
+            HttpRuntime.Cache.Insert(
+                key,
+                o,
+                null,
+                DateTime.Now.AddMinutes(CACHE_PERIOD_IN_MINUTES),
+                System.Web.Caching.Cache.NoSlidingExpiration);
+        }
+
+        /// <summary>
+        /// Retrieve cached item
+        /// </summary>
+        /// <typeparam name="T">Type of cached item</typeparam>
+        /// <param name="key">Name of cached item</param>
+        /// <param name="value">Cached value. Default(T) if 
+        /// item doesn't exist.</param>
+        /// <returns>Cached item as type</returns>
+        public static bool Get<T>(string key, out T value)
+        {
+            try
+            {
+                if (Exists(key))
+                {
+                    value = (T)HttpContext.Current.Cache[key];
+                    return true;
+                }
+                else
+                {
+                    value = default(T);
+                    return false;
+                }
+            }
+            catch
+            {
+                value = default(T);
+                return false;
+            }
+
+        }
+
+
+        /// <summary>
+        /// Remove item from cache
+        /// </summary>
+        /// <param name="key">Name of cached item</param>
+        public static void Clear(string key)
+        {
+            HttpContext.Current.Cache.Remove(key);
+        }
+
+        /// <summary>
+        /// Check for item in cache
+        /// </summary>
+        /// <param name="key">Name of cached item</param>
+        /// <returns></returns>
+        public static bool Exists(string key)
+        {
+            return HttpContext.Current.Cache[key] != null;
+        }
+
+
+    }
+}
