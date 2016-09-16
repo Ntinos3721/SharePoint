@@ -1,0 +1,80 @@
+using CamlexNET;
+using Microsoft.SharePoint;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace CAMLEX
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            try
+            {
+                //string caml = Camlex.Query().Where(x => (string)x["Status"] == "Completed").ToString();
+                //string caml = Camlex.Query().Where(x => (string)x["Title"] == "Αίτημα Συναλλαγής"
+                //    && ((string)x["Status Υποβολής"] == "ΕΚΚΑΘΑΡΙΣΘΕΝ ΑΠΟ ΚΑΤΑΣΤΗΜΑ" || (string)x["Status Υποβολής"] == "ΕΚΚΑΘΑΡΙΣΘΕΝ ΑΠΟ ΜΟΝΑΔΑ")
+                //    && ((string)x["Status Μονάδας Διαχείρισης"] == "ΕΛΕΓΜΕΝΟ ΠΡΟΣ ΥΕΤΣ" || (string)x["Status Υποβολής"] == "ΕΛΕΓΜΕΝΟ ΠΡΟΣ ΕΕΤΣ")
+                //    && ((string)x["Status ΔΠΧΠ"] == "ΕΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ" || (string)x["Status ΔΠΧΠ"] == "ΥΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ" || (string)x["Status ΔΠΧΠ"] == "ΕΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ ΥΠΟ ΟΡΟΥΣ")
+                //    && (x["Sent2teiresias"] == null)
+                //    && (x["Ημερομηνία Εκκαθάρισης Συναλλαγής"] != null)
+                //    )                                   
+                //    .ToString();
+
+                //string caml = Camlex.Query().Where(x => (string)x["module"] == "WP addcsv2").ToString(); 
+
+                
+                var orderByList = new List<Expression<Func<SPListItem, object>>>();
+                orderByList.Add(x => x["BaseId"] as Camlex.Asc);
+                orderByList.Add(y => y["ID"] as Camlex.Asc);
+                  
+                //var caml = Camlex.Query().OrderBy(orderByList).ToString();
+
+                //string caml = Camlex.Query().Where(x => (string)x["Title"] != "Αίτημα Συναλλαγής")
+                //    .GroupBy(x => x["Κωδικός Καταστήματος"])
+                //    .OrderBy(x => x["Created"] as Camlex.Desc).ToString(); 
+
+                //string[] ids = new string[] { "12345", "77899", "12500" };
+                //string caml = Camlex.Query().Where(x => ids.Contains((string)x["ID"])).ToString();
+
+                //string caml = Camlex.Query().Where(x => (string)x["IsActive"] == "Yes" && (string)x["ActiveNotification"] == "Yes"
+                //                                            && x["DateEnd"] != null && x["DateNotifyCount"] != null)
+                //                             .OrderBy(orderByList)
+                //                             .ToString();
+
+                string caml = Camlex.Query().Where(x => (DateTime)x["Created"] >= new DateTime(2015, 09, 01) 
+                                                            && (DateTime)x["Created"] < new DateTime(2015, 10, 01))
+                    .ToString();
+
+
+                Console.WriteLine(caml);
+
+                using (StreamWriter sw = new StreamWriter(string.Format("{0}\\Output.txt", GetAssemblyDirectory()), false, Encoding.GetEncoding(1253)))
+                {
+                    sw.Write(caml);
+                }
+
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+
+            Console.ReadLine();
+        }
+
+        static string GetAssemblyDirectory()
+        {
+            string codeBase = Assembly.GetExecutingAssembly().CodeBase;
+            UriBuilder uri = new UriBuilder(codeBase);
+            string path = Uri.UnescapeDataString(uri.Path);
+            return Path.GetDirectoryName(path);
+        }
+    }
+}
