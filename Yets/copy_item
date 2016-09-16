@@ -1,0 +1,160 @@
+using System;
+using Microsoft.SharePoint;
+using Microsoft.SharePoint.WebControls;
+
+namespace PNPCopyItem.Layouts.PNPCopyItem
+{
+    public partial class ApplicationPage1 : LayoutsPageBase
+    {
+        string[] fields = 
+            { "ContentType",
+            "Title",
+            "fpStatusYpovolis", //DevField: "fpStatusYpovolis2", 
+            "fpBranchCode",
+            "fpHmerominiaYpolvolisPelati",
+            "fpCDI",
+            "fpPelatis",
+            "fpAFM",
+            "fpEidosPelati", //DevField: "fpEidosPelati1",
+            "fpMonadaDiaxeirisis",
+            "fpEidosSynallagis",
+            "fpDikaiouxos",
+            "fpXwraProorismou",
+            "fpAitiologia",
+            "fpNomismaParastatikou",
+            "fpPosoParastatikou",
+            "fpKarigoriaProiontos", //DevField: "fpKatigoriaProiontos",
+            "fpEidosProiontos",
+            "fpKataliktikiHmerominia",
+            "fpStatusMD",
+            "fpHmerominiaEkgrisisMD",
+            "fpIsotimoSeEur",
+            "_x0391__x03b9__x03c4__x03b9__x03",
+            "FEKLookup0", //DevField: "FEKLookup",
+            "fpThetikhEishghshProsEETS",
+            "fpEisigisiKatastimatos",
+            "fpEishghthsA",
+            "fpEishghthsB",
+            "fpThlEpikoinwnias",
+            "fpStatusDpxp",
+            "fpcomment",
+            "fpEisigisiMD"};
+        protected void Page_Load(object sender, EventArgs e)
+        {
+            string itemId = Convert.ToString(Request.QueryString["ItemID"]);
+            SPWeb web = SPContext.Current.Web;
+            SPList list = web.Lists["AITHMATA"];
+            SPListItem sourceListItem = list.GetItemById(int.Parse(itemId));
+            SPListItem newListItem = list.AddItem();
+            web.AllowUnsafeUpdates = true;
+            CopyItem(sourceListItem, newListItem, fields);
+            list.Update();
+            web.AllowUnsafeUpdates = false;
+            //Response.Redirect(web.Url + "/" + sourceListItem.ParentList.Views["CopyItemView"].Url, false);
+
+            string url = Request.UrlReferrer.AbsolutePath;
+
+            Response.Redirect(url);
+        }
+        
+        private double GetRate(string currency)
+        {
+            SPWeb web = SPContext.Current.Web;
+            SPList list = web.Lists["Rates"];
+            
+            // Build a query.
+            SPQuery query = new SPQuery();
+            query.Query = string.Concat(
+                            "<Where>",
+                                "<And>",
+                                "<Eq>",
+                                    "<FieldRef Name='Title'/>",
+                                    "<Value Type='Text'>" + currency + "</Value>",
+                                "</Eq>",
+                                "<Eq>",
+                                    "<FieldRef Name='RateDate'/>",
+                                    "<Value Type='DateTime' IncludeTimeValue='FALSE'>" + DateTime.Now.ToString("yyyy-MM-dd") + "</Value>",
+                                "</Eq>",
+                                "</And>",
+                            "</Where>",
+                            "<OrderBy>",
+                                "<FieldRef Name='RateDate' Ascending='FALSE' />",
+                            "</OrderBy>");
+
+            //query.ViewFields = string.Concat("<FieldRef Name='RateMTF' />");
+            //query.ViewFieldsOnly = true; // Fetch only the data that we need.
+
+            SPListItemCollection items = list.GetItems(query);
+
+            double rate = 0;
+
+            if (items != null && items.Count > 0)
+            {
+                SPListItem item = items[0];
+
+                try
+                {
+                    rate = double.Parse(item["RateMTF"].ToString());
+                }
+                catch (Exception x) { throw x; }
+            }
+            return  rate; 
+        
+        }
+
+        private string GetCurrency(int currencyid)
+        {
+            SPWeb web = SPContext.Current.Web;
+            SPList list = web.Lists["currency"];
+            SPListItem item = list.GetItemById(currencyid);
+            return item["Title"].ToString(); 
+        }
+
+        private void CopyItem(SPListItem srcItem, SPListItem destItem, string[] fields2Copy)
+        {
+            foreach (SPField field in srcItem.Fields)
+            {
+                if (!field.ReadOnlyField && field.InternalName != "Attachments")
+                {
+                    for (int i = 0; i < fields2Copy.Length; i++ )
+                    {
+                        if (fields2Copy[i] == field.InternalName)
+                        {
+                            destItem[field.InternalName] = srcItem[field.InternalName];
+                            if (field.InternalName == "fpcomment")
+                            { destItem[field.InternalName] = "DUPLICATED FROM " + srcItem.ID; }
+                            break;
+                        }
+                    }
+                }
+            }
+
+            string currency = GetCurrency(int.Parse(destItem["fpNomismaParastatikou"].ToString())).ToUpper();
+
+            if(currency.Contains("EUR"))
+            { destItem["fpIsotimoSeEur"] = destItem["fpPosoParastatikou"]; }
+            else
+            {
+                double rate = GetRate(currency);
+                if (rate != 0)
+                { destItem["fpIsotimoSeEur"] = double.Parse(destItem["fpPosoParastatikou"].ToString()) / rate; }
+                else { destItem["fpIsotimoSeEur"] = null; }
+
+                destItem["fpRateDate"] = DateTime.Now.ToString("yyyy-MM-dd");
+                destItem["fpRate"] = rate;
+            }
+            
+
+            foreach (string attachmentName in srcItem.Attachments)
+            {
+                SPFile file = srcItem.ParentList.ParentWeb.GetFile(srcItem.Attachments.UrlPrefix + attachmentName);
+                byte[] data = file.OpenBinary();
+                destItem.Attachments.Add(attachmentName, data);
+            }
+
+            try { destItem.Update(); }
+            catch (Exception x) { throw x; }
+        }
+
+    }
+}
