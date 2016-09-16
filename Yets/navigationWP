@@ -1,0 +1,384 @@
+using Microsoft.SharePoint;
+using System;
+using System.Web.UI;
+using System.Web.UI.WebControls;
+using System.Web.UI.WebControls.WebParts;
+
+namespace navigationWP.VisualWebPart1
+{
+    public partial class vwp1uc : UserControl
+    {
+
+
+        public string EmployeeName { get; set; }
+
+
+        protected void Page_Load(object sender, EventArgs e)
+        {
+            try
+            {
+                string currentUser = SPContext.Current.Web.CurrentUser.Name.ToString();
+                //string currentUser = SPContext.Current.Web.CurrentUser.LoginName.ToString();
+
+
+                Label0.Text = currentUser;// +":" + VisualWebPart1.ColumnsFive.ToString();
+                using (SPSite site = SPContext.Current.Site)
+                {
+                    using (SPWeb web = site.OpenWeb())
+                    {
+                        SPList nav = web.Lists["navigationA"];
+                        SPList usrs = web.Lists["users"];
+                        SPQuery q = new SPQuery();
+                        q.Query = "<OrderBy><FieldRef Name='ordering' /></OrderBy>";
+                        SPListItemCollection navlistitms = nav.GetItems(q);
+                        foreach (SPListItem itm in navlistitms)
+                        {
+                            #region find user group
+                            SPQuery qry = new SPQuery();
+                            qry.ViewXml = "<View Scope=\"RecursiveAll\"> " +
+                                "<ViewFields>" +
+                                "<FieldRef Name='Title'/>" +
+                                "<FieldRef Name='pnpdemands'/>" +
+                                "</ViewFields>" +
+                                     "<Query>" +
+                                     "<Where>" +
+                                                 "<Eq>" +
+                                                   "<FieldRef Name=\"Title\" />" +
+                                                    "<Value Type=\"Text\">" + currentUser + "</Value>" +
+                                                  "</Eq>" +
+                                     "</Where>" +
+                                     "</Query>" +
+                                     "</View>";
+                            SPListItemCollection usrsfound = usrs.GetItems(qry);
+                            #endregion
+                            if (usrsfound.Count > 0)
+                            {
+                                SPListItem usr = usrsfound[0];
+                                string pnpdemands = IsNull(usr["pnpdemands"]);
+                                string group = IsNull(itm["group"]);
+
+                                if (pnpdemands != null)
+                                {
+                                    if (pnpdemands.ToUpper().IndexOf(group.ToUpper()) > -1 || (group.ToUpper().Equals("ALL")))
+                                    {
+                                        if (itm["col"] != null)
+                                        {
+                                            if (itm["col"].ToString().ToUpper().Equals("A"))
+                                            {
+                                                if (itm["tabs"] != null)
+                                                {
+                                                    int tabs = 0;
+                                                    tabs = Int16.Parse(itm["tabs"].ToString());
+                                                    for (int i = 0; i < tabs; i++)
+                                                    {
+                                                        Label1.Text += "&nbsp;&nbsp;&nbsp;&nbsp;";
+                                                    }
+
+                                                }
+                                                //Label1.Text += " - "+itm["ID"].ToString() +" <a href='" + itm["url"].ToString() + "'>" + itm["Title"].ToString() + "</a><br><br>";
+                                                if (IsNull(itm["header"]) == "True")
+                                                {
+                                                    Label1.Text += "<i><b><a class='mynav' href='" + IsNull(itm["url"], "#") + "'>" + itm["Title"].ToString() + "</a></b></i><br><br>";
+                                                }
+                                                else {
+                                                    Label1.Text += "<img  src='../SiteCollectionImages/west.png' height='12' vspace='0' />";
+                                                    Label1.Text += "<a class='mynav' href='" + IsNull(itm["url"], "#") +"'>" + itm["Title"].ToString() + "</a><br><br>";
+                                                }
+                                            }
+                                            if (itm["col"].ToString().ToUpper().Equals("B"))
+                                            {
+                                                if (itm["tabs"] != null)
+                                                {
+                                                    int tabs = 0;
+                                                    tabs = Int16.Parse(itm["tabs"].ToString());
+                                                    for (int i = 0; i < tabs; i++)
+                                                    {
+                                                        Label2.Text += "&nbsp;&nbsp;&nbsp;&nbsp;";
+                                                    }
+
+                                                }
+                                                //Label2.Text += " - " + itm["ID"].ToString() + " <a href='" + itm["url"].ToString() + "'>" + itm["Title"].ToString() + "</a><br><br>";
+                                                if (IsNull(itm["header"]) == "True")
+                                                {
+                                                    Label2.Text += "<i><b><a class='mynav' href='" + IsNull(itm["url"], "#") + "'>" + itm["Title"].ToString() + "</a></b></i><br><br>";
+                                                }
+                                                else
+                                                {
+                                                    Label2.Text += "<img src='../SiteCollectionImages/west.png' height='12' vspace='0' />";
+                                                    Label2.Text += "<a class='mynav' href='" + IsNull(itm["url"], "#") + "'>" + itm["Title"].ToString() + "</a><br><br>";
+                                                }
+                                            }
+                                            if (itm["col"].ToString().ToUpper().Equals("C"))
+                                            {
+                                                if (itm["tabs"] != null)
+                                                {
+                                                    int tabs = 0;
+                                                    tabs = Int16.Parse(itm["tabs"].ToString());
+                                                    for (int i = 0; i < tabs; i++)
+                                                    {
+                                                        Label3.Text += "&nbsp;&nbsp;&nbsp;&nbsp;";
+                                                    }
+
+                                                }
+                                                //Label3.Text += " - " + itm["ID"].ToString() + " <a href='" + itm["url"].ToString() + "'>" + itm["Title"].ToString() + "</a><br><br>";
+                                                if (IsNull(itm["header"]) == "True")
+                                                {
+                                                    Label3.Text += " <i><b><a class='mynav' href='" + IsNull(itm["url"], "#") + "'>" + itm["Title"].ToString() + "</a></b></i><br><br>";
+                                                }
+                                                else
+                                                {
+                                                    Label3.Text += "<img  src='../SiteCollectionImages/west.png' height='12' vspace='0' />";
+                                                    Label3.Text += "<a class='mynav' href='" + IsNull(itm["url"], "#") + "'>" + itm["Title"].ToString() + "</a><br><br>";
+                                                }
+                                            }
+                                            if (itm["col"].ToString().ToUpper().Equals("D"))
+                                            {
+                                                if (itm["tabs"] != null)
+                                                {
+                                                    int tabs = 0;
+                                                    tabs = Int16.Parse(itm["tabs"].ToString());
+                                                    for (int i = 0; i < tabs; i++)
+                                                    {
+                                                        Label4.Text += "&nbsp;&nbsp;&nbsp;&nbsp;";
+                                                    }
+
+                                                }
+                                                //Label4.Text += " - " + itm["ID"].ToString() + " <a href='" + itm["url"].ToString() + "'>" + itm["Title"].ToString() + "</a><br><br>";
+                                                if (IsNull(itm["header"]) == "True")
+                                                {
+                                                    Label4.Text += "<i><b><a class='mynav' href='" + IsNull(itm["url"], "#") + "'>" + itm["Title"].ToString() + "</a></b></i><br><br>";
+                                                }
+                                                else
+                                                {
+                                                    Label4.Text += "<img  src='../SiteCollectionImages/west.png' height='12' vspace='0' />";
+                                                    Label4.Text += "<a class='mynav' href='" + IsNull(itm["url"], "#") + "'>" + itm["Title"].ToString() + "</a><br><br>";
+                                                }
+                                            }
+                                            if (itm["col"].ToString().ToUpper().Equals("E"))
+                                            {
+                                                if (itm["tabs"] != null)
+                                                {
+                                                    int tabs = 0;
+                                                    tabs = Int16.Parse(itm["tabs"].ToString());
+                                                    for (int i = 0; i < tabs; i++)
+                                                    {
+                                                        Label5.Text += "&nbsp;&nbsp;&nbsp;&nbsp;";
+                                                    }
+
+                                                }
+                                                //Label5.Text += " - " + itm["ID"].ToString() + " <a href='" + itm["url"].ToString() + "'>" + itm["Title"].ToString() + "</a><br><br>";
+                                                if (IsNull(itm["header"]) == "True")
+                                                {
+                                                    Label5.Text += "<i><b><a class='mynav' href='" + IsNull(itm["url"], "#") + "'>" + itm["Title"].ToString() + "</a></b></i><br><br>";
+                                                }
+                                                else
+                                                {
+                                                    Label5.Text += "<img  src='../SiteCollectionImages/west.png' height='12' vspace='0' />";
+                                                    Label5.Text += "<a class='mynav' href='" + IsNull(itm["url"], "#") + "'>" + itm["Title"].ToString() + "</a><br><br>";
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    Label3.Text = "User (" + currentUser + ") has not valid group!";
+                                }
+
+                            }
+
+                            else
+                            {
+                                Label3.Text = "(" + currentUser + ") is a branch user!";
+                                #region get null links
+                                string group = IsNull(itm["group"]);
+                                if (group.ToUpper().Equals("ALL"))
+                                {
+                                    if (itm["col"] != null)
+                                    {
+                                        if (itm["col"].ToString().ToUpper().Equals("A"))
+                                        {
+                                            if (itm["tabs"] != null)
+                                            {
+                                                int tabs = 0;
+                                                tabs = Int16.Parse(itm["tabs"].ToString());
+                                                for (int i = 0; i < tabs; i++)
+                                                {
+                                                    Label1.Text += "&nbsp;&nbsp;&nbsp;&nbsp;";
+                                                }
+
+                                            }
+                                            //Label1.Text += " - "+itm["ID"].ToString() +" <a href='" + itm["url"].ToString() + "'>" + itm["Title"].ToString() + "</a><br><br>";
+                                            if (IsNull(itm["header"]) == "True")
+                                            {
+                                                Label1.Text += "<i><b><a class='mynav' href='" + IsNull(itm["url"], "#") + "'>" + itm["Title"].ToString() + "</a></b></i><br><br>";
+                                            }
+                                            else
+                                            {
+                                                Label1.Text += "<img  src='../SiteCollectionImages/west.png' height='12' vspace='0' />";
+                                                Label1.Text += "<a class='mynav' href='" + IsNull(itm["url"], "#") + "'>" + itm["Title"].ToString() + "</a><br><br>";
+                                            }
+                                        }
+                                        if (itm["col"].ToString().ToUpper().Equals("B"))
+                                        {
+                                            if (itm["tabs"] != null)
+                                            {
+                                                int tabs = 0;
+                                                tabs = Int16.Parse(itm["tabs"].ToString());
+                                                for (int i = 0; i < tabs; i++)
+                                                {
+                                                    Label2.Text += "&nbsp;&nbsp;&nbsp;&nbsp;";
+                                                }
+
+                                            }
+                                            //Label2.Text += " - " + itm["ID"].ToString() + " <a href='" + itm["url"].ToString() + "'>" + itm["Title"].ToString() + "</a><br><br>";
+                                            if (IsNull(itm["header"]) == "True")
+                                            {
+                                                Label2.Text += "<i><b><a class='mynav' href='" + IsNull(itm["url"], "#") + "'>" + itm["Title"].ToString() + "</a></b></i><br><br>";
+                                            }
+                                            else
+                                            {
+                                                Label2.Text += "<img src='../SiteCollectionImages/west.png' height='12' vspace='0' />";
+                                                Label2.Text += "<a class='mynav' href='" + IsNull(itm["url"], "#") + "'>" + itm["Title"].ToString() + "</a><br><br>";
+                                            }
+                                        }
+                                        if (itm["col"].ToString().ToUpper().Equals("C"))
+                                        {
+                                            if (itm["tabs"] != null)
+                                            {
+                                                int tabs = 0;
+                                                tabs = Int16.Parse(itm["tabs"].ToString());
+                                                for (int i = 0; i < tabs; i++)
+                                                {
+                                                    Label3.Text += "&nbsp;&nbsp;&nbsp;&nbsp;";
+                                                }
+
+                                            }
+                                            //Label3.Text += " - " + itm["ID"].ToString() + " <a href='" + itm["url"].ToString() + "'>" + itm["Title"].ToString() + "</a><br><br>";
+                                            if (IsNull(itm["header"]) == "True")
+                                            {
+                                                Label3.Text += " <i><b><a class='mynav' href='" + IsNull(itm["url"], "#") + "'>" + itm["Title"].ToString() + "</a></b></i><br><br>";
+                                            }
+                                            else
+                                            {
+                                                Label3.Text += "<img  src='../SiteCollectionImages/west.png' height='12' vspace='0' />";
+                                                Label3.Text += "<a class='mynav' href='" + IsNull(itm["url"], "#") + "'>" + itm["Title"].ToString() + "</a><br><br>";
+                                            }
+                                        }
+                                        if (itm["col"].ToString().ToUpper().Equals("D"))
+                                        {
+                                            if (itm["tabs"] != null)
+                                            {
+                                                int tabs = 0;
+                                                tabs = Int16.Parse(itm["tabs"].ToString());
+                                                for (int i = 0; i < tabs; i++)
+                                                {
+                                                    Label4.Text += "&nbsp;&nbsp;&nbsp;&nbsp;";
+                                                }
+
+                                            }
+                                            //Label4.Text += " - " + itm["ID"].ToString() + " <a href='" + itm["url"].ToString() + "'>" + itm["Title"].ToString() + "</a><br><br>";
+                                            if (IsNull(itm["header"]) == "True")
+                                            {
+                                                Label4.Text += "<i><b><a class='mynav' href='" + IsNull(itm["url"], "#") + "'>" + itm["Title"].ToString() + "</a></b></i><br><br>";
+                                            }
+                                            else
+                                            {
+                                                Label4.Text += "<img  src='../SiteCollectionImages/west.png' height='12' vspace='0' />";
+                                                Label4.Text += "<a class='mynav' href='" + IsNull(itm["url"], "#") + "'>" + itm["Title"].ToString() + "</a><br><br>";
+                                            }
+                                        }
+                                        if (itm["col"].ToString().ToUpper().Equals("E"))
+                                        {
+                                            if (itm["tabs"] != null)
+                                            {
+                                                int tabs = 0;
+                                                tabs = Int16.Parse(itm["tabs"].ToString());
+                                                for (int i = 0; i < tabs; i++)
+                                                {
+                                                    Label5.Text += "&nbsp;&nbsp;&nbsp;&nbsp;";
+                                                }
+
+                                            }
+                                            //Label5.Text += " - " + itm["ID"].ToString() + " <a href='" + itm["url"].ToString() + "'>" + itm["Title"].ToString() + "</a><br><br>";
+                                            if (IsNull(itm["header"]) == "True")
+                                            {
+                                                Label5.Text += "<i><b><a class='mynav' href='" + IsNull(itm["url"], "#") + "'>" + itm["Title"].ToString() + "</a></b></i><br><br>";
+                                            }
+                                            else
+                                            {
+                                                Label5.Text += "<img  src='../SiteCollectionImages/west.png' height='12' vspace='0' />";
+                                                Label5.Text += "<a class='mynav' href='" + IsNull(itm["url"], "#") + "'>" + itm["Title"].ToString() + "</a><br><br>";
+                                            }
+                                        }
+                                    }
+                                }
+                                #endregion
+                            }
+
+
+                        }
+                    }
+                }
+                if (VisualWebPart1.ColumnsFive)
+                {
+                    Label2.Visible = true;
+                    Label4.Visible = true;
+                }
+                else
+                {
+                    Label2.Visible = false;
+                    Label4.Visible = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Label1.Text = ex.ToString();
+            }
+        }
+
+
+        #region helpers
+        private string IsNull(object val) { string defaultmissingvalue = ""; string defaultformatdate = ""; return IsNull(val, defaultmissingvalue, defaultformatdate); }
+        private string IsNull(object val, string missingvalue) { string defaultformatdate = ""; return IsNull(val, missingvalue, defaultformatdate); }
+        private string IsNull(object val, string missingvalue, string formatdate)
+        {
+            if (val == null)
+            {
+                return missingvalue;
+            }
+            else
+            {
+                if (formatdate.Equals(""))
+                {
+                    if (val.ToString().IndexOf("#") > 0)
+                    {
+                        return val.ToString().Substring(val.ToString().IndexOf("#") + 1, val.ToString().Length - 1 - val.ToString().IndexOf("#"));
+                    }
+                    else
+                    {
+                        return val.ToString();
+                    }
+                }
+                else
+                {
+                    return DateTime.Parse(val.ToString()).ToString(formatdate);
+                }
+            }
+
+
+        }
+        private object IsDecimalNull(object val, object missingvalue)
+        {
+            if (val == null)
+            {
+                return missingvalue;
+            }
+            else
+            {
+                return val;
+            }
+        }
+        #endregion
+    }
+}
