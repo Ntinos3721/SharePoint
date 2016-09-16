@@ -1,0 +1,768 @@
+using System;
+using System.Collections.Generic;
+using System.Configuration;
+using System.IO;
+using System.Linq;
+using Microsoft.SharePoint.Client;
+using System.Text;
+using System.Threading.Tasks;
+using Microsoft.SharePoint;
+using System.Data.SqlClient;
+
+namespace TestLogic
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            //UpdateSent2TtEItems();
+            //return;
+            
+            /*******/
+            try {
+
+                //RatesFileHandling();
+                //GetAllItems("http://dmsdev2013:81/", "AITHMATA", "spdms_install", "P@ssw0rd", "centraltest");
+                //TestConnx();
+
+                //todo
+                //Log("test-code", "test-status-new", "test-message");
+                //CheckListFolders();
+
+                if (args.Any())
+                {
+                    if (args[0] == "ListFieldsFromURL")
+                    { GetFieldNames(args[1], args[2], args[3], args[4], args[5]); }
+
+                    if (args[0] == "ListFields")
+                    { GetFieldNames(args[1], args[2], args[3], args[4], args[5]); }
+
+                    if (args[0] == "ItemValues")
+                    { GetItemValues(args[1], args[2], args[3], args[4], args[5], args[6]); }
+
+                    if (args[0] == "AllItems")
+                    { GetAllItems(args[1], args[2], args[3], args[4], args[5]); }
+
+
+                    if (args[0] == "CopyItem")
+                    {
+                        CopyItem(args[1], args[2], args[3], args[4], args[5], args[6],
+                          args[7], args[8], args[9], args[10], args[11]);
+                    }
+
+                    if (args[0] == "ChangeFolder")
+                    {
+                        ChangeFolder(args[1], args[2], args[3], args[4], args[5], args[6],
+                          args[7]);
+                    }
+                }
+                else
+                {
+                    ChangeFolder("17370", "201-ΙΣΤΙΑΙΑΣ", "http://TODO:81/", "AITHMATA", "TODO", "P@TODO", "TODO");
+                    //ChangeFolder("182818", "139-ΝΕΑΣ ΚΗΦΙΣΙΑΣ", "https://TODO/", "AITHMATA", "TODO", "TODO", "TODO");
+                }
+                
+            }
+            catch (Exception x) { Console.WriteLine(x.Message); LogEvents(x.Message); }
+
+            
+            Console.ReadLine();
+        }
+
+        private static void ChangeFolder(string itemID, string newFolder,
+            string fromSiteURL, string fromlistName, string fromusername, string frompassword, string fromdomain)
+        {
+            Console.WriteLine("Starting ChangeFolder");
+            //microsoft.sharepoint.client.clientcontext does not contain a definition for 'Credentials'
+            //Please include Microsoft.SharePoint.Client.Runtime.dll in your project.
+
+            CamlQuery q = new CamlQuery();
+
+            q.ViewXml = "<View Scope='RecursiveAll'> " +
+                "<Query>" +
+                "<Where>" +
+                            "<Eq>" +
+                            "<FieldRef Name='ID' />" +
+                            "<Value Type='Number'>" + itemID + "</Value>" +
+                            "</Eq>" +
+                "</Where>" +
+                "</Query>" +
+                "</View>";
+
+            Microsoft.SharePoint.Client.ClientContext cc = new Microsoft.SharePoint.Client.ClientContext(fromSiteURL);
+            cc.Credentials = new System.Net.NetworkCredential(fromusername, frompassword, fromdomain);
+
+            //string branchfield = "fpBranchCode";  //"Κωδικός Καταστήματος-Δ/νσης (ΛΣ)"
+
+            var list = cc.Web.Lists.GetByTitle(fromlistName);
+            cc.Load(list, mylist => mylist.RootFolder);
+            cc.ExecuteQuery();
+            // get item
+            ListItemCollection lic = list.GetItems(q);
+            cc.Load(lic, listCollection => listCollection.Include(
+                                                            //item => item[branchfield],
+                                                            item => item["FileRef"]));
+            cc.ExecuteQuery();
+
+            ListItem li = lic[0];
+            string url = li["FileRef"].ToString();
+            Console.WriteLine(url);
+
+            Microsoft.SharePoint.Client.File liFile = cc.Web.GetFileByServerRelativeUrl(url);
+            cc.Load(liFile, x => x.Name, x => x.ServerRelativeUrl);
+            cc.ExecuteQuery();
+
+            Console.WriteLine(liFile.ServerRelativeUrl);
+            Console.WriteLine(list.RootFolder.ServerRelativeUrl);
+            Console.WriteLine(liFile.Name);
+
+            string newDestinationUrl = liFile.ServerRelativeUrl.Replace(liFile.ServerRelativeUrl,
+                                            list.RootFolder.ServerRelativeUrl + "/" + newFolder + "/" + liFile.Name);
+
+            liFile.MoveTo(newDestinationUrl, MoveOperations.Overwrite);
+            cc.ExecuteQuery();
+        }
+
+        private static void TestConnx()
+        {
+            string connectionString = "Integrated Security=SSPI;Persist Security Info=False;Initial Catalog=TODO;Data Source=TODO";
+
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(connectionString))
+                {
+                    conn.Open();
+                    Console.WriteLine("ok");
+                }
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+
+
+        private static void UpdateSent2TtEItems()
+        {
+            int cnt = 0;
+            try
+            {
+            
+                string siteCollectionUrl = GetAppSetting("SiteCollection", string.Empty);
+                string sitelistName = "AITHMATA";
+                
+                SPSite siteCollection = new SPSite(siteCollectionUrl);
+                SPWeb web = siteCollection.RootWeb;
+                SPList list = web.Lists[sitelistName];
+
+
+                for(int i=0; i<100; i++)
+                {
+                    SPListItem item = list.Items.GetItemById(17297);
+
+                    InitSent2TtEItem(item);
+
+                    item["sent2TEE"] = "true";
+                    item.Update();
+                    cnt++;
+                    /*
+                    InitSent2TtEItem(item);
+                    
+                    item["Status Υποβολής"] = "ΑΚΥΡΩΜΕΝΟ";
+                    item["sent2TEE"] = "cancelled";
+                    item["Ημερομηνία Αποστολής Εγκρίσεως ΕΕΤΣ/ΥΕΤΣ"] = null;
+                    item.Update();
+                    */
+                }
+                
+            }
+            catch (Exception x)
+            { LogEvents(cnt + " | " + x.Message); }
+            finally { }
+        }
+
+
+        private static void InitSent2TtEItem(SPListItem item)
+        {
+
+            item["Status Υποβολής"] = "ΠΡΟΣ ΑΞΙΟΛΟΓΗΣΗ";
+            item["status ΜΟΝΑΔΑΣ ΔΙΑΧΕΙΡΙΣΗΣ"] = "ΕΛΕΓΜΕΝΟ ΠΡΟΣ ΕΕΤΣ";
+            item["status ΔΠΧΠ"] = "ΕΕΤΣ ΥΠΟ ΕΞΕΤΑΣΗ";
+            item[@"Ημερομηνία Αποστολής Εγκρίσεως ΕΕΤΣ/ΥΕΤΣ"] = null;
+            item["sent2TEE"] = "";
+            item.Update();
+
+        }
+
+        private static void RatesFileHandling()
+        {
+            StreamReader sr = null;
+
+            try
+            {
+                string fullPathFilename = GetAppSetting("FullPathFilename", string.Empty);
+
+                fullPathFilename = GetNewestFile();
+
+                sr = new StreamReader(fullPathFilename);
+
+                string line = sr.ReadLine();
+
+                string h = line.Substring(0, 20);
+
+                string siteCollectionUrl = GetAppSetting("SiteCollection", string.Empty);
+                string sitelistName = GetAppSetting("sitelistName", string.Empty);
+                string listName = GetAppSetting("listName", string.Empty);
+
+                SPSite siteCollection = new SPSite(siteCollectionUrl);
+                SPWeb web = siteCollection.RootWeb;
+                SPList list = web.GetList(sitelistName);
+
+                while (line != null)
+                {
+                    if (!line.StartsWith("91") && !line.StartsWith("92"))
+                    {
+                        DateTime d = DateTime.Now; //DateTime.Parse(line.Substring(14, 4) + "-" + line.Substring(18, 2) + "-" + line.Substring(20, 2));
+                        decimal mft = decimal.Parse(line.Substring(22, 10).Replace(".", "")) / 100000;
+                        string iso = TransformEL2EN(line.Substring(4, 3));
+
+                        InsertRate(list, h, d, mft, iso);
+                    }
+
+                    line = sr.ReadLine();
+                }
+            }
+            catch (Exception x)
+            { LogEvents(x.Message); }
+            finally { sr.Close(); sr = null; }
+        }
+
+        private static void InsertRate(SPList list, string headerKey, DateTime rateDate, decimal rateMft, string rateIso)
+        {
+            try
+            {
+                SPListItem item = list.Items.Add();
+                item["HeaderKey"] = headerKey;
+                item["RateDate"] = rateDate;
+                item["RateMTF"] = rateMft;
+                item["Title"] = rateIso;
+                item.Update();
+            }
+            catch (Exception ex)
+            {
+                LogEvents(ex.Message);
+            }
+        }
+        
+        private static string TransformEL2EN(string key)
+        {
+            string keyValue = key;
+            if (!string.IsNullOrEmpty(keyValue))
+            {
+                try
+                {
+                    //ΕΤΥΙΟΚΗΑΖΧΒΝΡΜ ETYIOKHAZXBNPM
+                    keyValue = keyValue.Replace("Ε", "E");
+                    keyValue = keyValue.Replace("Τ", "T");
+                    keyValue = keyValue.Replace("Υ", "Y");
+                    keyValue = keyValue.Replace("Ι", "I");
+                    keyValue = keyValue.Replace("Ο", "O");
+                    keyValue = keyValue.Replace("Α", "A");
+                    keyValue = keyValue.Replace("Η", "H");
+                    keyValue = keyValue.Replace("Κ", "K");
+                    keyValue = keyValue.Replace("Ζ", "Z");
+                    keyValue = keyValue.Replace("Χ", "X");
+                    keyValue = keyValue.Replace("Β", "B");
+                    keyValue = keyValue.Replace("Ν", "N");
+                    keyValue = keyValue.Replace("Ρ", "P");
+                    keyValue = keyValue.Replace("Μ", "M");
+                }
+                catch (Exception x)
+                {
+                    LogEvents(x.Message);
+                }
+            }
+
+            return keyValue;
+        }
+
+        private static string GetNewestFile()
+        {
+            string ratesFilePath = GetAppSetting("RatesFilePath", string.Empty);
+
+            var directory = new DirectoryInfo(ratesFilePath);
+            var myFile = (from f in directory.GetFiles()
+                          orderby f.LastWriteTime descending
+                          select f).First();
+
+            return ratesFilePath + myFile.Name;
+        }
+
+        private static void CheckListFolders()
+        {
+            using (SPSite site = new SPSite("http://TODO:81/"))
+            {
+                using (SPWeb web = site.OpenWeb()) //returns the site associated with URL 
+                {
+                    SPList list = web.Lists["AITHMATA"]; // get the desired list
+
+                    Console.WriteLine("RootFolder Name:" + list.RootFolder.Name);
+                    foreach (SPFolder folder in list.RootFolder.SubFolders)
+                    {
+                        Console.WriteLine("subfolder:" + folder.Name);
+                    }
+                }
+            }
+        }
+        
+        private static void GetFieldNames(string siteURL, string listName, string username, string password, string domain)
+        {
+            //microsoft.sharepoint.client.clientcontext does not contain a definition for 'Credentials'
+            //Please include Microsoft.SharePoint.Client.Runtime.dll in your project.
+
+            LogEvents(siteURL + " | " + listName);
+
+            CamlQuery q = new CamlQuery();
+
+            q.ViewXml = "";
+
+            Microsoft.SharePoint.Client.ClientContext cc = new Microsoft.SharePoint.Client.ClientContext(siteURL);
+            cc.Credentials = new System.Net.NetworkCredential(username, password, domain);
+
+            var list = cc.Web.Lists.GetByTitle(listName);
+
+            cc.Load(list);
+            cc.ExecuteQuery();
+
+            FieldCollection fc = list.Fields;
+            cc.Load(fc);
+            cc.ExecuteQuery();
+
+            for (int i = 0; i < fc.Count; i++ )
+            {
+
+                string line = fc[i].InternalName + " | " + fc[i].StaticName + " | " + fc[i].Title + " | " + fc[i].TypeDisplayName;
+                Console.WriteLine(line);
+                System.Diagnostics.Debug.WriteLine(line);
+                LogEvents(line);
+
+            }
+
+                cc.ExecuteQuery();
+        }
+
+
+        private static void GetFieldNamesFromListURL(string siteURL, string listURL, string username, string password, string domain)
+        {
+            //microsoft.sharepoint.client.clientcontext does not contain a definition for 'Credentials'
+            //Please include Microsoft.SharePoint.Client.Runtime.dll in your project.
+
+            LogEvents(siteURL + " | " + listURL);
+
+            CamlQuery q = new CamlQuery();
+
+            q.ViewXml = "";
+
+            Microsoft.SharePoint.Client.ClientContext cc = new Microsoft.SharePoint.Client.ClientContext(siteURL);
+            cc.Credentials = new System.Net.NetworkCredential(username, password, domain);
+
+            var list = LoadListByUrl(cc.Web, listURL);
+
+            cc.Load(list);
+            cc.ExecuteQuery();
+
+            FieldCollection fc = list.Fields;
+            cc.Load(fc);
+            cc.ExecuteQuery();
+
+            for (int i = 0; i < fc.Count; i++)
+            {
+
+                string line = fc[i].InternalName + " | " + fc[i].StaticName + " | " + fc[i].Title + " | " + fc[i].TypeDisplayName;
+                Console.WriteLine(line);
+                System.Diagnostics.Debug.WriteLine(line);
+                LogEvents(line);
+
+            }
+
+            cc.ExecuteQuery();
+        }
+
+        public static List LoadListByUrl(Web web, string listUrl)
+        {
+            var ctx = web.Context;
+            var listFolder = web.GetFolderByServerRelativeUrl(listUrl);
+            ctx.Load(listFolder.Properties);
+            ctx.ExecuteQuery();
+            var listId = new Guid(listFolder.Properties["vti_listname"].ToString());
+            var list = web.Lists.GetById(listId);
+            ctx.Load(list);
+            ctx.ExecuteQuery();
+            return list;
+        }
+        
+        private static void GetItemValues(string siteURL, string listName, string itemid, string username, string password, string domain)
+        {
+            //microsoft.sharepoint.client.clientcontext does not contain a definition for 'Credentials'
+            //Please include Microsoft.SharePoint.Client.Runtime.dll in your project.
+
+            LogEvents(siteURL + " | " + listName);
+
+            CamlQuery q = new CamlQuery();
+
+            q.ViewXml = "<View Scope='RecursiveAll'> " +
+                "<Query>" +
+                "<Where>" +
+                            "<Eq>" +
+                            "<FieldRef Name='ID' />" +
+                            "<Value Type='Number'>" + itemid+ "</Value>" +
+                            "</Eq>" +
+                "</Where>" +
+                "</Query>" +
+                "</View>";
+
+            Microsoft.SharePoint.Client.ClientContext cc = new Microsoft.SharePoint.Client.ClientContext(siteURL);
+            cc.Credentials = new System.Net.NetworkCredential(username, password, domain);
+
+            var list = cc.Web.Lists.GetByTitle(listName);
+            cc.Load(list);
+            cc.ExecuteQuery();
+
+            ListItemCollection lic = list.GetItems(q);
+            cc.Load(lic);
+            cc.ExecuteQuery();
+
+            ListItem li = lic[0];
+            
+            foreach (var a in li.FieldValues)
+            {
+                if (a.Value != null)
+                {
+                    string line = a.Key.ToString() + " : " + a.Value;
+
+                    if (a.Key.ToString() == "fpStatusMD")
+                    { 
+                        FieldLookupValue flv = (FieldLookupValue)a.Value;
+                        line = a.Key.ToString() + " : " + flv.LookupId + " : " + flv.LookupValue;
+                    }
+                    Console.WriteLine(line);
+                    System.Diagnostics.Debug.WriteLine(line);
+                    LogEvents(line);
+                }
+            }
+        }
+
+        private static void GetAllItems(string siteURL, string listName, string username, string password, string domain)
+        {
+            //microsoft.sharepoint.client.clientcontext does not contain a definition for 'Credentials'
+            //Please include Microsoft.SharePoint.Client.Runtime.dll in your project.
+
+            LogEvents(siteURL + " | " + listName);
+
+            CamlQuery q = new CamlQuery();
+
+            q.ViewXml = "<View Scope='RecursiveAll'> " +
+                "<Query>" +
+                "<Where>" +
+
+                            "<IsNotNull>" +
+                            "<FieldRef Name='fpKwdikosAitimatos' />" +
+                            "</IsNotNull>" +
+                "</Where>" +
+                "</Query>" +
+                "</View>";
+
+            Microsoft.SharePoint.Client.ClientContext cc = new Microsoft.SharePoint.Client.ClientContext(siteURL);
+            cc.Credentials = new System.Net.NetworkCredential(username, password, domain);
+
+            var list = cc.Web.Lists.GetByTitle(listName);
+            cc.Load(list);
+            cc.ExecuteQuery();
+
+            ListItemCollection lic = list.GetItems(q);
+            cc.Load(lic);
+            cc.ExecuteQuery();
+
+            for (int i = 0; i < lic.Count; i++)
+            {
+                ListItem li = lic[i];
+
+                foreach (var a in li.FieldValues)
+                {
+                    if (a.Value != null)
+                    {
+                        string line = a.Key.ToString() + " : " + a.Value;
+                        if (a.Key.ToString() == "fpStatusMD")
+                        {
+                            FieldLookupValue flv = (FieldLookupValue)a.Value;
+                            line = a.Key.ToString() + " : " + flv.LookupId + " : " + flv.LookupValue;
+                        }
+                        Console.WriteLine(line);
+                        System.Diagnostics.Debug.WriteLine(line);
+                        LogEvents(line);
+                    }
+                }
+            }
+        }
+
+        private static Folder GetListItemFolder(ListItem listItem)
+        {
+            Console.WriteLine("getting folderUrl");
+            var folderUrl = (string)listItem["FileDirRef"];
+            Console.WriteLine("getting parent list");
+            var parentList = listItem.ParentList;
+            Console.WriteLine("getting parent web");
+            var parentWeb = listItem.ParentList.ParentWeb;
+            Console.WriteLine("getting parentFolder");
+            var parentFolder = listItem.ParentList.ParentWeb.GetFolderByServerRelativeUrl(folderUrl);
+            Console.WriteLine("loading parentFolder");
+            listItem.Context.Load(parentFolder);
+            Console.WriteLine("ExecuteQuery");
+            listItem.Context.ExecuteQuery();
+            return parentFolder;
+        }
+
+        private static void CopyItem(string fromitemid, 
+            string fromSiteURL, string fromlistName, string fromusername, string frompassword, string fromdomain,
+            string toSiteURL, string tolistName, string tousername, string topassword, string todomain)
+        {
+            Console.WriteLine("Starting CopyItem");
+            //microsoft.sharepoint.client.clientcontext does not contain a definition for 'Credentials'
+            //Please include Microsoft.SharePoint.Client.Runtime.dll in your project.
+
+            CamlQuery q = new CamlQuery();
+
+            q.ViewXml = "<View Scope='RecursiveAll'> " +
+                "<Query>" +
+                "<Where>" +
+                            "<Eq>" +
+                            "<FieldRef Name='ID' />" +
+                            "<Value Type='Number'>" + fromitemid + "</Value>" +
+                            "</Eq>" +
+                "</Where>" +
+                "</Query>" +
+                "</View>";
+
+            Microsoft.SharePoint.Client.ClientContext cc = new Microsoft.SharePoint.Client.ClientContext(fromSiteURL);
+            cc.Credentials = new System.Net.NetworkCredential(fromusername, frompassword, fromdomain);
+
+            var list = cc.Web.Lists.GetByTitle(fromlistName);
+            cc.Load(list);
+            cc.ExecuteQuery();
+
+            ListItemCollection lic = list.GetItems(q);
+            cc.Load(lic);
+            cc.ExecuteQuery();
+
+            ListItem li = lic[0];
+
+
+            Microsoft.SharePoint.Client.ClientContext ccDev = 
+                new Microsoft.SharePoint.Client.ClientContext(toSiteURL);
+            ccDev.Credentials = new System.Net.NetworkCredential(tousername, topassword, todomain);
+
+            var listDev = ccDev.Web.Lists.GetByTitle(tolistName);
+            ccDev.Load(listDev);
+            ccDev.ExecuteQuery();
+
+            ListItemCreationInformation itemCreateInfo = new ListItemCreationInformation();
+            //FYI: new entry
+            itemCreateInfo.FolderUrl = "/Lists/timologia/667-25ΗΣ ΑΥΓΟΥΣΤΟΥ";
+
+            ListItem liDev = listDev.AddItem(itemCreateInfo);
+            liDev.Update();
+            ccDev.ExecuteQuery(); 
+            
+            foreach (var a in li.FieldValues)
+            {
+                if (a.Value != null)
+                {
+                    try
+                    {
+                        //FYI: There is a mismatch at column names between dev and production environment.
+                        if (a.Key.ToString() == "BranchCode")
+                        {
+                            //Κωδικός Καταστήματος
+                            liDev["_x039a__x03c9__x03b4__x03b9__x03"] = a.Value;
+                        }
+                        else
+                        {
+                            liDev[a.Key.ToString()] = a.Value;
+                        }
+                        
+                        liDev.Update();
+                        //FYI: The ExecuteQuery() was moved outside the foreach statement, because of 'Version Conflict' error.
+                        //--->ccDev.ExecuteQuery(); 
+                        
+                    }
+                    catch (Exception x) { LogEvents(a.Key + ":; " + x.Message); }
+
+                    string line = a.Key.ToString() + " : " + a.Value;
+                    Console.WriteLine(line);
+                    System.Diagnostics.Debug.WriteLine(line);
+                    LogEvents(line);
+                }
+            }
+
+            //FYI: new entry
+            ccDev.ExecuteQuery(); 
+
+            Console.WriteLine("End CopyItem");
+        }
+
+        private static void LogEvents(string msg)
+        {
+            string line = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss") + " : " + msg;
+            //textBox1.Text = line + "\r\n" + textBox1.Text;
+            //textBox1.Select(0, 0);
+            System.IO.StreamWriter sw = null;
+
+            try
+            {
+                //Application.Startuppath for windows forms
+                sw = new System.IO.StreamWriter(System.Reflection.Assembly.GetExecutingAssembly().Location + "_log_" + DateTime.Now.ToString("yyyyMMdd") + ".txt", true);
+                sw.WriteLine(line);
+                sw.Flush();
+            }
+            catch (Exception x)
+            { }
+            finally { if (sw != null) { sw.Close(); } }
+        }
+
+        /*
+        private string GetAAPhysicalPersons(SPItemEventProperties properties)
+        {
+            string res = "";
+
+            SPListItem currentItem = properties.ListItem;
+
+            using (SPWeb web = properties.OpenWeb())
+            {
+                // Build a query.
+                SPQuery query = new SPQuery();
+                query.Query = string.Concat(
+                                "<Where>",
+                                    "<And>",
+                                    "<Eq>",
+                                        "<FieldRef Name='ΑΦΜ Πελάτη'/>",
+                                        "<Value Type='Text'>" + currentItem["ΑΦΜ Πελάτη (ΛΣ)"] + "</Value>",
+                                    "</Eq>",
+                                    "<Eq>",
+                                        "<FieldRef Name='Created'/>",
+                                        "<Value Type='DateTime' IncludeTimeValue='FALSE'>" + currentItem["Created"] + "</Value>",
+                                    "</Eq>",
+                                    "</And>",
+                                "</Where>",
+                                "<OrderBy>",
+                                    "<FieldRef Name='Α.Α.' Ascending='FALSE' />",
+                                "</OrderBy>");
+
+                query.ViewFields = string.Concat("<FieldRef Name='Α.Α. (ΛΣ)' />");
+
+                query.ViewFieldsOnly = true; // Fetch only the data that we need.
+
+                SPList list = properties.List;
+                SPListItemCollection items = list.GetItems(query);
+
+                int tmp = 1;
+
+                if (items[0]["Α.Α. (ΛΣ)"] != null)
+                { tmp = int.Parse(items[0]["Α.Α. (ΛΣ)"].ToString()) + 1; }
+
+                res = tmp.ToString();
+            }
+
+            return res;
+        }
+         * */
+
+        static SPListItem GetLastItem(SPList debuglist)
+        {
+            var query = new SPQuery();
+            query.RowLimit = 1;
+            query.Query = "<OrderBy><FieldRef Name='ID' Ascending='FALSE' /></OrderBy>";
+            
+            return debuglist.GetItems(query).Cast<SPListItem>().FirstOrDefault();
+        }
+
+        static bool ItemExists(SPListItem item, string code, string status)
+        {
+            return item["code"].ToString() == code 
+                && item["status"].ToString() == status
+                && item["module"].ToString() == "web service";
+        }
+        
+        // <summary>
+        /// From EETSResponse
+        /// </summary>
+        /// <param name="mycode"></param>
+        /// <param name="status"></param>
+        /// <param name="msg"></param>
+        static void Log(string mycode, string status, string msg)
+        {
+            try
+            {
+                SPSecurity.RunWithElevatedPrivileges(delegate()
+                {
+                    using (SPSite oSite = new SPSite("http://TODO:81/"))
+                    {
+                        using (SPWeb oWeb = oSite.OpenWeb())
+                        {
+                            SPList dbglist = oWeb.GetList("/Lists/debuglist");
+                            // get the last item
+                            var lastItem = GetLastItem(dbglist);
+                            if (ItemExists(lastItem, mycode, status))
+                            {
+                                lastItem["counter"] = lastItem["counter"] == null ? 1 : Convert.ToInt32(lastItem["counter"]) + 1; 
+                                lastItem.Update();
+                            }
+                            else
+                            {
+                                SPListItem dbgitm = dbglist.AddItem();
+                                dbgitm["module"] = "web service";
+                                dbgitm["status"] = status;
+                                dbgitm["code"] = mycode;
+                                if (msg.Length < 254)
+                                {
+                                    dbgitm["Title"] = msg;
+
+                                }
+                                else
+                                {
+                                    dbgitm["Title"] = msg.Substring(0, 100) + "...";
+                                    dbgitm["details"] = msg;
+                                }
+
+                                dbgitm["counter"] = 1;
+                                dbgitm.Update();
+                            }
+                        }
+                    }
+                });
+            }//end try
+            catch (Exception ex)
+            {
+                //using (StreamWriter w = File.AppendText("d:\\export\\WSpnpdemands_log.txt"))
+                //using (StreamWriter w = File.AppendText("c:\\temp\\WSpnpdemands_log.txt"))
+                //{
+                //    w.WriteLine(DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss") + ": " + "Error in debug List :" + ex.ToString());
+                //}
+            }
+        }
+
+        private static string GetAppSetting(string key, string defaultValue)
+        {
+            string keyValue = defaultValue;
+            try
+            {
+                keyValue = ConfigurationManager.AppSettings[key];
+            }
+            catch (Exception x)
+            {
+                LogEvents(x.Message);
+            }
+            return keyValue;
+        }
+    }
+
+}
