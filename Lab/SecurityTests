@@ -1,0 +1,109 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Security
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            Create64String("kostas");
+            
+            Console.Write("Enter a password: ");
+            string password = Console.ReadLine();
+
+            // generate a 128-bit salt using a secure PRNG
+            byte[] salt = new byte[128 / 8];
+            using (RNGCryptoServiceProvider rngCsp = new RNGCryptoServiceProvider())
+            {
+                // Fill the array with a random value.
+                rngCsp.GetBytes(salt);
+            }
+
+            Console.WriteLine("Salt: {0}", Convert.ToBase64String(salt));
+
+            // derive a 256-bit subkey (use HMACSHA1 with 10,000 iterations)
+            string data1 = "Some test data";
+            //The default iteration count is 1000 so the two methods use the same iteration count.
+            int myIterations = 1000;
+            try
+            {
+                Rfc2898DeriveBytes k1 = new Rfc2898DeriveBytes(password, salt, myIterations);
+                Rfc2898DeriveBytes k2 = new Rfc2898DeriveBytes(password, salt);
+                // Encrypt the data.
+                TripleDES encAlg = TripleDES.Create();
+                encAlg.Key = k1.GetBytes(16);
+                MemoryStream encryptionStream = new MemoryStream();
+                CryptoStream encrypt = new CryptoStream(encryptionStream, encAlg.CreateEncryptor(), CryptoStreamMode.Write);
+                byte[] utfD1 = new System.Text.UTF8Encoding(false).GetBytes(data1);
+
+                encrypt.Write(utfD1, 0, utfD1.Length);
+                encrypt.FlushFinalBlock();
+                encrypt.Close();
+                byte[] edata1 = encryptionStream.ToArray();
+                k1.Reset();
+                string data2 = new UTF8Encoding(false).GetString(encryptionStream.ToArray());
+                Console.WriteLine(data2);
+
+                // Try to decrypt, thus showing it can be round-tripped.
+                //TripleDES decAlg = TripleDES.Create();
+                //decAlg.Key = k2.GetBytes(16);
+                //decAlg.IV = encAlg.IV;
+                //MemoryStream decryptionStreamBacking = new MemoryStream();
+                //CryptoStream decrypt = new CryptoStream(decryptionStreamBacking, decAlg.CreateDecryptor(), CryptoStreamMode.Write);
+                //decrypt.Write(edata1, 0, edata1.Length);
+                //decrypt.Flush();
+                //decrypt.Close();
+                //k2.Reset();
+                //string data2 = new UTF8Encoding(false).GetString(decryptionStreamBacking.ToArray());
+
+                //if (!data1.Equals(data2))
+                //{
+                //    Console.WriteLine("Error: The two values are not equal.");
+                //}
+                //else
+                //{
+                //    Console.WriteLine("The two values are equal.");
+                //    Console.WriteLine("k1 iterations: {0}", k1.IterationCount);
+                //    Console.WriteLine("k2 iterations: {0}", k2.IterationCount);
+                //}
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Error: ", e);
+            }
+
+
+
+            //string hashed = Convert.ToBase64String(KeyDerivation.Pbkdf2(
+            //    password: password,
+            //    salt: salt,
+            //    prf: KeyDerivationPrf.HMACSHA1,
+            //    iterationCount: 10000,
+            //    numBytesRequested: 256 / 8));
+            Console.WriteLine("Hashed: {0}");
+
+            Console.ReadLine();
+        }
+
+        private static void Create64String(string inputText)
+        {
+            byte[] input = Encoding.UTF8.GetBytes(inputText);
+
+            System.Security.Cryptography.SHA1 sha = new System.Security.Cryptography.SHA1CryptoServiceProvider();
+            byte[] hashValue = sha.ComputeHash(input);
+
+            string convertedString = BitConverter.ToString(hashValue);
+            Console.WriteLine(convertedString);
+            
+            string s = System.Convert.ToBase64String(hashValue);
+            // 4ag5njbv/nWhJBAusqK9/ILgqrQ=, 4ag5njbv/nWhJBAusqK9/ILgqrQ=
+            Console.WriteLine(s);
+        }
+    }
+}
