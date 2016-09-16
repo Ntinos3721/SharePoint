@@ -1,0 +1,915 @@
+using Microsoft.SharePoint;
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Runtime.Serialization;
+using System.ServiceModel;
+using System.ServiceModel.Web;
+using System.Text;
+using System.Web.Services.Protocols;
+
+namespace EETSResponce
+{
+    // NOTE: You can use the "Rename" command on the "Refactor" menu to change the class name "Service1" in code, svc and config file together.
+    // NOTE: In order to launch WCF Test Client for testing this service, please select Service1.svc or Service1.svc.cs at the Solution Explorer and start debugging.
+    public class Service1 : IService1
+    {
+        public string sharePointSite = System.Web.Configuration.WebConfigurationManager.TODOettings["SiteURL"].ToString();
+
+        public string updateSPItem(string data)
+        {
+            string referencecode = "generic";
+            try
+            {
+               
+
+                String result = "2 - Το αίτημα δεν υπάρχει";
+               
+                string[] datafields = data.Split(';');
+                Log(datafields[0], "Info", "data:" + data);
+                if (datafields.Count() == 7)
+                {
+                    //Log(datafields[0],"Info", "data:" + data);
+                    /*
+                         1.	ReferenceCode
+                         2.	Status
+                         3.	ApprovedAmount
+                         4.	Comments
+                         5.	DecisionDate
+                         6.	ReplyDate
+                         7.	DecisionReference
+                         */
+                        
+                    referencecode = data.Split(';')[0];
+                    string statusEETS = data.Split(';')[1];
+                    string amount = NormalizeValue(data.Split(';')[2]);
+                    string comments = NormalizeValue(data.Split(';')[3]);
+                    string decisionDate = NormalizeValue(data.Split(';')[4]);
+                    string replayDate = NormalizeValue(data.Split(';')[5]);
+                    string protocol = NormalizeValue(data.Split(';')[6]);    
+
+                    SPSecurity.RunWithElevatedPrivileges(delegate()
+                    {
+                        using (SPSite oSite = new SPSite(sharePointSite))
+                        {
+                            using (SPWeb oWeb = oSite.OpenWeb())
+                            {
+                                SPList protokolo = oWeb.GetList(AddPrefix(oWeb) + "/Lists/protokoloPNPdemands");
+                                #region find protokollo entry
+                                    
+                                SPQuery protokoloqry = new SPQuery();
+                                protokoloqry.ViewXml = "<View Scope=\"RecursiveAll\"> " +
+                                    "<ViewFields>" +
+                                    "<FieldRef Name='Title'/>" +
+                                    "<FieldRef Name='status'/>" +
+                                    "<FieldRef Name='status ΔΠΧΠ'/>" +
+                                    "</ViewFields>" +
+                                            "<Query>" +
+                                            "<Where>" +
+                                                        "<Eq>" +
+                                                        "<FieldRef Name=\"Title\" />" +
+                                                        "<Value Type=\"Text\">" + referencecode + "</Value>" +
+                                                        "</Eq>" +
+                                            "</Where>" +
+                                            "</Query>" +
+                                            "</View>";
+                                SPListItemCollection protokoloitms2beupdated = protokolo.GetItems(protokoloqry);
+                                #endregion
+
+                                if (protokoloitms2beupdated.Count == 1)
+                                {
+                                    //Log(referencecode, "Info", "Protocol entry found 1");
+                                    if (UpdateProtokollo(protokolo.GetItemById(protokoloitms2beupdated[0].ID), data))
+                                    {
+                                        result = "1 - Το αίτημα ενημερώθηκε";
+                                    }
+                                    else
+                                    {
+                                        result = "3 - Το αίτημα δεν ενημερώθηκε";
+                                    }
+
+                                    SPList timologia = oWeb.GetList(AddPrefix(oWeb) + "/Lists/timologia");
+
+                                    #region find additional details
+                                    SPQuery additionalqry = new SPQuery();
+                                    //Log(referencecode, "Info", "referencecode :" + referencecode);
+                                    //Log(referencecode, "Info", "referencecode.IndexOf(AB) :" + referencecode.IndexOf("AB"));
+                                    if (referencecode.IndexOf("AB") > -1)
+                                    {
+                                        additionalqry.ViewXml = "<View Scope=\"RecursiveAll\"> " +
+                                                    "<Query>" +
+                                                    "<Where>" +
+                                                                "<Eq>" +
+                                                                "<FieldRef Name=\"fpKwdikosAitimatos\" />" +
+                                                               "<Value Type=\"Text\">" + referencecode + "</Value>" +
+                                                                "</Eq>" +
+                                                    "</Where>" +
+                                                    "</Query>" +
+                                                    "</View>";
+                                    }
+                                    else
+                                    {
+                                        additionalqry.ViewXml = "<View Scope=\"RecursiveAll\"> " +
+                                                   "<Query>" +
+                                                   "<Where>" +
+                                                               "<Eq>" +
+                                                                "<FieldRef Name=\"KodikosAitimatos\" />" +
+                                                                "<Value Type=\"Text\">" + referencecode + "</Value>" +
+                                                               "</Eq>" +
+                                                   "</Where>" +
+                                                   "</Query>" +
+                                                   "</View>";
+                                    }
+                                    SPListItemCollection itms2beupdated = timologia.GetItems(additionalqry);
+                                    #endregion
+                                    //Log(referencecode, "Info", "itms2beupdated.Count :" + itms2beupdated.Count);
+                                    if (itms2beupdated.Count > 0)
+                                    {
+                                        foreach (SPListItem toUpdate in itms2beupdated)
+                                        {
+                                           
+                                            if (referencecode.IndexOf("AB") > -1)
+                                            {
+                                               // Log(referencecode, "Info", "Status Υποβολής (ΛΣ): " + IsNull(toUpdate["Status Υποβολής (ΛΣ)"], "missing")
+                                               // + " Status Μονάδας Διαχείρισης (ΛΣ): " + IsNull(toUpdate["Status Μονάδας Διαχείρισης (ΛΣ)"], "missing")
+                                               // + " Status ΔΠΧΠ (ΛΣ): " + IsNull(toUpdate["Status ΔΠΧΠ (ΛΣ)"], "missing"));
+                                                if (UpdateRequestItemLP(toUpdate, data))
+                                                {
+                                                   
+                                                    result = "1 - Το αίτημα ενημερώθηκε";
+                                                }
+                                                else
+                                                {
+                                                    Log(referencecode, "Error", "timologio λοιπά update failed of :" + referencecode);
+                                                    result = "2 - Το αίτημα δεν ενημερώθηκε:" + referencecode;
+                                                }
+                                               
+                                            }
+                                            else
+                                            {
+                                               
+                                               // Log(referencecode, "Info", "Status Υποβολής: " + IsNull(toUpdate["Status Υποβολής"], "missing")+
+                                               //     " status ΜΟΝΑΔΑΣ ΔΙΑΧΕΙΡΙΣΗΣ: " + IsNull(toUpdate["status ΜΟΝΑΔΑΣ ΔΙΑΧΕΙΡΙΣΗΣ"], "missing")+
+                                               //     " status ΔΠΧΠ: " + IsNull(toUpdate["status ΔΠΧΠ"], "missing"));
+                                              
+                                                    if (UpdateRequestItem(toUpdate, data))
+                                                    {
+                                                        result = "1 - Το αίτημα ενημερώθηκε";
+                                                    }
+                                                    else
+                                                    {
+                                                        result = "2 - Το αίτημα δεν ενημερώθηκε λόγω λαθους:" + referencecode;
+                                                    }
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        result = "2 - Οι λεπτομέρειες του Αρχείου ("+datafields[0]+") δεν βρέθηκαν ";
+                                        Log(datafields[0], "Warning", "Item (" + referencecode + ") not found");
+                                    }
+                                }
+                                else
+                                {
+                                    result = "2 - Το αίτημα δεν υπάρχει";
+                                    Log(datafields[0], "Warning", "Item (" + referencecode + ") not found");
+                                }
+                            }
+                        }
+                    }); //end delegate
+                }
+            
+
+                //end if
+                else
+                {
+                    Log(referencecode,"Error", "βρέθηκαν " + datafields.Count().ToString()+" πεδίο/α");
+                    result = "4 - Τα πεδία είναι διαφορετικά";
+                }
+
+                Log(referencecode,"Info", "result: " + result);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Log(referencecode,"Error", ex.ToString());
+                return "3 : " + ex.Message; 
+            }
+
+        }
+
+        private string GetAEISCode(SPListItem listitem, string epitropi)
+        {
+            string res = "";
+
+            res += listitem["Κωδικός Καταστήματος"].ToString().Substring(0, 3);
+            res += listitem["ΑΦΜ"].ToString();
+            res += DateTime.Parse(listitem["Created"].ToString()).ToString("yyMMdd");
+
+            if (epitropi == "Y")
+            {
+                res += DateTime.Parse(listitem["Ημερομηνία Εγκρίσεως ΥΕΤΣ"].ToString()).ToString("yyMMdd");
+            }
+
+            if (epitropi == "E")
+            {
+                res += DateTime.Parse(listitem["Ημερομηνία λήψης απόφασης ΕΕΤΣ"].ToString()).ToString("yyMMdd");
+            }
+
+            res += listitem["Group"].ToString();
+
+            return res;
+        }
+        private string GetShortAEISCode(SPListItem listitem, string epitropi)
+        {
+            string res = "";
+
+            res += DateTime.Parse(listitem["Created"].ToString()).ToString("yyMMdd");
+
+            if (epitropi == "Y")
+            {
+                res += DateTime.Parse(listitem["Ημερομηνία Εγκρίσεως ΥΕΤΣ"].ToString()).ToString("yyMMdd");
+            }
+
+            if (epitropi == "E")
+            {
+                res += DateTime.Parse(listitem["Ημερομηνία λήψης απόφασης ΕΕΤΣ"].ToString()).ToString("yyMMdd");
+            }
+
+            res += listitem["Group"].ToString();
+
+            return res;
+        }
+
+        public string uploadFile(byte[] f, string fileToUpload)
+        {
+            try
+            {
+                string sharePointSite = System.Web.Configuration.WebConfigurationManager.TODOettings["SiteURL"].ToString();
+
+                //String fileToUpload = @"C:\YourFile.txt";
+                String result = "Τα πεδία δεν είναι έγκυρα";
+
+                String documentLibraryName = "Shared Documents";
+
+                SPSecurity.RunWithElevatedPrivileges(delegate()
+                    {
+                        using (SPSite oSite = new SPSite(sharePointSite))
+                        {
+                            using (SPWeb oWeb = oSite.OpenWeb())
+                            {
+                                if (!System.IO.File.Exists(fileToUpload))
+                                {
+                                    result = string.Format("File not uploaded correctly: {0}", fileToUpload);
+                                }
+                                else
+                                {
+                                    result = string.Format("You sent file: {0}", fileToUpload);
+                                    SPFolder myLibrary = oWeb.Folders[documentLibraryName];
+
+                                    // Prepare to upload
+                                    Boolean replaceExistingFiles = true;
+                                    String fileName = System.IO.Path.GetFileName(fileToUpload);
+                                    FileStream fileStream = File.OpenRead(fileToUpload);
+
+                                    // Upload document
+                                    SPFile spfile = myLibrary.Files.Add(fileName, fileStream, replaceExistingFiles);
+
+                                    // Commit 
+                                    myLibrary.Update();
+                                }
+                            }
+                        }
+                    });
+                return result;
+            }
+            catch
+            {
+                return string.Format("upload failed of file: {0}", fileToUpload);
+            }
+        }
+
+        private bool UpdateProtokollo(SPListItem item, string data)
+        {
+            /*
+           1.	ReferenceCode
+           2.	Status
+           3.	ApprovedAmount
+           4.	Comments
+           5.	DecisionDate
+           6.	ReplyDate
+           7.	DecisionReference
+           */
+
+            string referencecode = data.Split(';')[0];
+            string statusEETS = data.Split(';')[1];
+            string amount = NormalizeValue(data.Split(';')[2]);
+            string comments = NormalizeValue(data.Split(';')[3]);
+            string decisionDate = NormalizeValue(data.Split(';')[4]);
+            string replayDate = NormalizeValue(data.Split(';')[5]);
+            string protocol = NormalizeValue(data.Split(';')[6]);
+
+            try
+            {
+                item["status"] = statusEETS;
+                if (!comments.Equals("missing"))
+                {
+                    item["Λεπτομέρειες Απόρριψης"] = comments;
+                } 
+                if (statusEETS == "Το αίτημα εγκρίθηκε")
+                {
+                    item["status ΔΠΧΠ"] = "ΕΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ";
+                }
+                else if (statusEETS == "Το αίτημα εγκρίθηκε υπό όρους")
+                {
+                    item["status ΔΠΧΠ"] = "ΕΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ ΥΠΟ ΟΡΟΥΣ";
+                }
+                else if (statusEETS == "Το αίτημα απορρίφθηκε")
+                {
+                    item["status ΔΠΧΠ"] = "ΕΕΤΣ ΑΠΟΡΡΙΦΘΗΚΕ";
+                }
+                else if (statusEETS == "Σφάλμα επεξεργασίας")
+                {
+                    //item["status ΔΠΧΠ"] = "ΕΕΤΣ ΥΠΟ ΕΞΕΤΑΣΗ";
+                }
+                else if (statusEETS == "Ο αριθμός αιτήματος έχει χρησιμοποιηθεί ήδη")
+                {
+                    //item["status ΔΠΧΠ"] = "ΕΕΤΣ ΥΠΟ ΕΞΕΤΑΣΗ";
+                }
+                else if (statusEETS == "Τεχνικό πρόβλημα" || statusEETS == "Σφάλμα αποστολής")
+                {
+                    //item["status ΔΠΧΠ"] = "ΕΕΤΣ ΥΠΟ ΕΞΕΤΑΣΗ";
+                }
+                else if (statusEETS == "Το αίτημα έχει αποσταλεί")
+                {
+                    item["status ΔΠΧΠ"] = "ΕΕΤΣ ΥΠΟ ΕΞΕΤΑΣΗ";
+                }
+                else if (statusEETS == "Το αίτημα ανακλήθηκε επιτυχώς")
+                {
+                    //item["status ΔΠΧΠ"] = statusEETS;
+                }
+
+                item.Update();
+                //Log(referencecode, "Info", "Protocol entry updated");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log(referencecode, "Error", "Update protocol:"+ex.ToString());
+                return false;
+            }
+        }
+        private bool UpdateRequestItem(SPListItem item, string data)
+        {
+            /*
+            1.	ReferenceCode
+            2.	Status
+            3.	ApprovedAmount
+            4.	Comments
+            5.	DecisionDate
+            6.	ReplyDate
+            7.	DecisionReference
+            */
+
+            string referencecode =  data.Split(';')[0];
+            string statusEETS = data.Split(';')[1];
+            string amount = NormalizeValue(data.Split(';')[2]);
+            string comments = NormalizeValue(data.Split(';')[3]);
+            string decisionDate = NormalizeValue(data.Split(';')[4]);
+            string replyDate = NormalizeValue(data.Split(';')[5]);
+            string protocol = NormalizeValue(data.Split(';')[6]);
+            DateTime dummydate = DateTime.Now;
+            string dateformat = "yyyy-MM-dd";
+
+            try
+            {
+                //Log(referencecode, "Info", "statusEETS:" + statusEETS);
+                if (statusEETS == "Το αίτημα εγκρίθηκε" &&
+                    IsNull(item["Status Υποβολής"], "").Equals("ΠΡΟΣ ΑΞΙΟΛΟΓΗΣΗ") &&
+                    IsNull(item["status ΜΟΝΑΔΑΣ ΔΙΑΧΕΙΡΙΣΗΣ"], "").Equals("ΕΛΕΓΜΕΝΟ ΠΡΟΣ ΕΕΤΣ") &&
+                    IsNull(item["status ΔΠΧΠ"], "").Equals("ΕΕΤΣ ΥΠΟ ΕΞΕΤΑΣΗ"))
+                {
+                    //Log(referencecode, "Info", "decisionDate:" + decisionDate);
+                    if (DateTime.TryParse(decisionDate, out dummydate))
+                    {
+                        //Log(referencecode, "Info", "dummydate:" + dummydate);
+                        item["Ημερομηνία Απόφασης ΕΕΤΣ"] = dummydate;
+                    }
+                    //Log(referencecode, "Info", "replyDate:" + replyDate);
+                    if (DateTime.TryParse(replyDate, out dummydate))
+                    {
+                        //Log(referencecode, "Info", "dummydate:" + dummydate);
+                        item["Ημερομηνία λήψης απόφασης ΕΕΤΣ"] = dummydate;
+                    }
+                    Log(referencecode, "Info", "amount:" + amount);
+                    item["Εγκριθέν ποσό από ΕΕΤΣ"] = amount;
+                    Log(referencecode, "Info", "ΕΕΤΣ protocol:" + protocol);
+                    item["Αριθμός Πρωτ. Αποφάσεως ΕΕΤΣ"] = protocol;
+                    Log(referencecode, "Info", "comments:" + comments);
+                    item["Σχόλιο Αποφ. ΕΕΤΣ"] = comments;
+                    item["status ΔΠΧΠ"] = "ΕΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ";
+                    item["sent2TEE"] = "ΕΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ";
+                    item["Έγκριση ΕΕΤΣ"] = "Έγκριση";
+
+                    if (IsLSReferenceCode(referencecode)) SetEpitropiLS(item);
+                    else SetEpitropiNP(item);
+
+                    item.Update();
+                }
+                else if (statusEETS == "Το αίτημα εγκρίθηκε υπό όρους" && 
+                    IsNull(item["Status Υποβολής"], "").Equals("ΠΡΟΣ ΑΞΙΟΛΟΓΗΣΗ") &&
+                    IsNull(item["status ΜΟΝΑΔΑΣ ΔΙΑΧΕΙΡΙΣΗΣ"], "").Equals("ΕΛΕΓΜΕΝΟ ΠΡΟΣ ΕΕΤΣ") &&
+                    IsNull(item["status ΔΠΧΠ"], "").Equals("ΕΕΤΣ ΥΠΟ ΕΞΕΤΑΣΗ"))
+                {
+                    Log(referencecode, "Info", "decisionDate: " + decisionDate);
+                    if (DateTime.TryParseExact(decisionDate, dateformat, CultureInfo.InvariantCulture, DateTimeStyles.None, out dummydate))
+                    {
+                        //Log(referencecode, "Info", "dummydate: " + dummydate);
+                        item["Ημερομηνία Απόφασης ΕΕΤΣ"] = dummydate;
+                    }
+                    Log(referencecode, "Info", "replyDate: " + replyDate);
+                    if (DateTime.TryParseExact(replyDate, dateformat, CultureInfo.InvariantCulture, DateTimeStyles.None, out dummydate))
+                    {
+                        //Log(referencecode, "Info", "dummydate: " + dummydate);
+                        item["Ημερομηνία λήψης απόφασης ΕΕΤΣ"] = dummydate;
+                    }
+                    //Log(referencecode, "Info", "amount: " + amount);
+                    item["Εγκριθέν ποσό από ΕΕΤΣ"] = amount;
+                    //Log(referencecode, "Info", "ΕΕΤΣ protocol: " + protocol);
+                    item["Αριθμός Πρωτ. Αποφάσεως ΕΕΤΣ"] = protocol;
+                    //Log(referencecode, "Info", "comments: " + comments);
+                    item["Σχόλιο Αποφ. ΕΕΤΣ"] = comments;
+                    item["status ΔΠΧΠ"] = "ΕΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ ΥΠΟ ΟΡΟΥΣ";
+                    item["sent2TEE"] = "ΕΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ ΥΠΟ ΟΡΟΥΣ";
+                    item["Έγκριση ΕΕΤΣ"] = "Έγκριση";
+
+                    if (IsLSReferenceCode(referencecode)) SetEpitropiLS(item);
+                    else SetEpitropiNP(item);
+                    
+                    item.Update();
+
+                }
+                else if (statusEETS == "Το αίτημα απορρίφθηκε" &&
+                    IsNull(item["Status Υποβολής"], "").Equals("ΠΡΟΣ ΑΞΙΟΛΟΓΗΣΗ") &&
+                    IsNull(item["status ΜΟΝΑΔΑΣ ΔΙΑΧΕΙΡΙΣΗΣ"], "").Equals("ΕΛΕΓΜΕΝΟ ΠΡΟΣ ΕΕΤΣ") &&
+                    IsNull(item["status ΔΠΧΠ"], "").Equals("ΕΕΤΣ ΥΠΟ ΕΞΕΤΑΣΗ"))
+                {
+                    //Log(referencecode, "Info", "decisionDate: " + decisionDate);
+                    if (DateTime.TryParseExact(decisionDate, dateformat, CultureInfo.InvariantCulture, DateTimeStyles.None, out dummydate))
+                    {
+                        //Log(referencecode, "Info", "dummydate: " + dummydate);
+                        item["Ημερομηνία Απόφασης ΕΕΤΣ"] = dummydate;
+                    }
+                    //Log(referencecode, "Info", "replyDate: " + replyDate);
+                    if (DateTime.TryParseExact(replyDate, dateformat, CultureInfo.InvariantCulture, DateTimeStyles.None, out dummydate))
+                    {
+                        //Log(referencecode, "Info", "dummydate: " + dummydate);
+                        item["Ημερομηνία λήψης απόφασης ΕΕΤΣ"] = dummydate;
+                    }
+                    //Log(referencecode, "Info", "amount: " + amount);
+                    item["Εγκριθέν ποσό από ΕΕΤΣ"] = amount;
+                    //Log(referencecode, "Info", "ΕΕΤΣ protocol: " + protocol);
+                    item["Αριθμός Πρωτ. Αποφάσεως ΕΕΤΣ"] = protocol;
+                    //Log(referencecode, "Info", "comments: " + comments);
+                    item["Σχόλιο Αποφ. ΕΕΤΣ"] = comments;
+                    item["status ΔΠΧΠ"] = "ΕΕΤΣ ΑΠΟΡΡΙΨΗ";
+                    
+                    //FYI: email 'mapping status web service communication with TTE'
+                    item["status ΜΟΝΑΔΑΣ ΔΙΑΧΕΙΡΙΣΗΣ"] = "ΑΚΥΡΩΜΕΝΟ";
+                    item["Status Υποβολής"] = "ΑΚΥΡΩΜΕΝΟ";
+
+                    item["sent2TEE"] = "ΕΕΤΣ ΑΠΟΡΡΙΨΗ";
+                    item["Έγκριση ΕΕΤΣ"] = "Απόρριψη";
+                    item.Update();
+                }
+                else if (statusEETS == "Σφάλμα επεξεργασίας")
+                {
+                    item["Λεπτομέρειες Απόρριψης"] = comments;
+                    item["sent2TEE"] = "error";
+                    item.Update();
+                }
+                else if (statusEETS == "Ο αριθμός αιτήματος έχει χρησιμοποιηθεί ήδη")
+                {
+                    item["Λεπτομέρειες Απόρριψης"] = comments;
+                    item["sent2TEE"] = "error";
+                    item.Update();
+                }
+
+                else if (statusEETS == "Τεχνικό πρόβλημα" || statusEETS == "Σφάλμα αποστολής")
+                {
+                    item["Λεπτομέρειες Απόρριψης"] = comments;
+                    item["sent2TEE"] = "error";
+                    item.Update();
+                }
+                else if (statusEETS == "Το αίτημα έχει αποσταλεί")
+                {
+                    item["Λεπτομέρειες Απόρριψης"] = "Το αίτημα έχει αποσταλεί";
+                    item.Update();
+                }
+                else if (statusEETS == "Το αίτημα έχει αποσταλεί για ανάκληση")
+                {
+                    item["Λεπτομέρειες Απόρριψης"] = comments;
+                    item.Update();
+                }
+                else if (statusEETS == "Το αίτημα ανακλήθηκε επιτυχώς")
+                {
+                    item["status ΜΟΝΑΔΑΣ ΔΙΑΧΕΙΡΙΣΗΣ"] = "ΑΚΥΡΩΜΕΝΟ";
+                    //FYI: email 'mapping status web service communication with TTE'
+                    item["Status Υποβολής"] = "ΑΚΥΡΩΜΕΝΟ";
+
+                    //FYI: issue 282 item["sent2TEE"] = "";
+                    item["Λεπτομέρειες Απόρριψης"] = comments;
+                    item.Update();
+                }
+                else
+                {
+                    Log(referencecode, "Error", "2 - Το αίτημα με statusEETS (" + statusEETS + ") με id (" + item.ID + ") δεν ενημερώθηκε λόγω οτι δεν ήταν στο σωστό status :" +
+                  " Status Υποβολής: " + IsNull(item["Status Υποβολής"], "") +
+                  " status ΜΟΝΑΔΑΣ ΔΙΑΧΕΙΡΙΣΗΣ: " + IsNull(item["status ΜΟΝΑΔΑΣ ΔΙΑΧΕΙΡΙΣΗΣ"], "") +
+                  " status ΔΠΧΠ: " + IsNull(item["status ΔΠΧΠ"], ""));
+                   
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log(referencecode, "Error", ex.ToString());
+                return false;
+            }
+        }
+        private void SetEpitropiNP(SPListItem item)
+        {
+            if (item["Ημερομηνία Εγκρίσεως ΥΕΤΣ"] != null)
+            {
+                item["ΚωδικόςΑΕΙΣ"] = GetAEISCode(item, "Y");
+                item["ShortAEIS"] = GetShortAEISCode(item, "Y");
+                item["epitropi"] = "Y";
+            }
+            else if (item["Ημερομηνία λήψης απόφασης ΕΕΤΣ"] != null)
+            {
+                item["ΚωδικόςΑΕΙΣ"] = GetAEISCode(item, "E");
+                item["ShortAEIS"] = GetShortAEISCode(item, "E");
+                item["epitropi"] = "E";
+            }
+            else
+            {
+                item["ΚωδικόςΑΕΙΣ"] = "NA";
+                item["ShortAEIS"] = "NA";
+                item["epitropi"] = "NA";
+            }
+
+            if (item["status ΔΠΧΠ"] != null)
+            {
+                if (item["status ΔΠΧΠ"].ToString() == "ΥΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ")
+                {
+                    if (item["Ημερομηνία Εγκρίσεως ΥΕΤΣ"] != null)
+                    {
+                        item["Αρ. Πρωτ. Εγκρίσεως ΥΕΤΣ"] =
+                                        item["Κωδικός Αιτήματος"] + "-" +
+                                        DateTime.Parse(item["Ημερομηνία Εγκρίσεως ΥΕΤΣ"].ToString()).ToString("dd-MM-yyyy");
+                    }
+                }
+            }
+        }
+        
+        private void SetEpitropiLS(SPListItem item)
+        {
+            if (item["Ημ/νία λήψης απόφασης ΕΕΤΣ (ΛΣ)"] != null)
+            {
+                item["epitropi"] = "E";
+            }
+            else
+            {
+                item["epitropi"] = "NA";
+            }
+        }
+
+        bool IsLSReferenceCode(string code)
+        {
+            return code.StartsWith("AB-");
+        }
+
+        private bool UpdateRequestItemLP(SPListItem item, string data)
+        {
+            /*
+            1.	ReferenceCode
+            2.	Status
+            3.	ApprovedAmount
+            4.	Comments
+            5.	DecisionDate
+            6.	ReplyDate
+            7.	DecisionReference
+            */
+
+            string referencecode = data.Split(';')[0];
+            string statusEETS = data.Split(';')[1];
+            string amount = NormalizeValue(data.Split(';')[2]);
+            string comments = NormalizeValue(data.Split(';')[3]);
+            string decisionDate = NormalizeValue(data.Split(';')[4]);
+            string replyDate = NormalizeValue(data.Split(';')[5]);
+            string protocol = NormalizeValue(data.Split(';')[6]);
+            DateTime dummydate = DateTime.Now;
+
+            try
+            {
+
+                if (statusEETS == "Το αίτημα εγκρίθηκε")
+                {
+                    
+                    Log(referencecode, "Info", "decisionDate: " + decisionDate);
+                    if (DateTime.TryParse(decisionDate, out dummydate))
+                    {
+                        Log(referencecode, "Info", "dummydate: " + dummydate);
+                        item["Ημ/νία Απόφασης ΕΕΤΣ (ΛΣ)"] = dummydate;
+                    }
+                    Log(referencecode, "Info", "replyDate: " + replyDate);
+                    if (DateTime.TryParse(replyDate, out dummydate))
+                    {
+                        Log(referencecode, "Info", "dummydate: " + dummydate);
+                        item["Ημ/νία λήψης απόφασης ΕΕΤΣ (ΛΣ)"] = dummydate;
+                    }
+                    Log(referencecode, "Info", "amount: " + amount);
+                    //item["Εγκριθέν ποσό από ΕΕΤΣ (ΛΣ)"] = amount;
+                    string lsApprovedAmount = item.Fields.GetFieldByInternalName("egkrithenPosoApoEETs").InternalName;
+                    item[lsApprovedAmount] = amount; //FYI: issue 251
+
+                    //Εγκριθέν ποσό από ΕΕΤΣ (ΛΣ)
+                    Log(referencecode, "Info", "ΕΕΤΣ protocol: " + protocol);
+                    item["Αρ.Πρωτ. Αποφάσεως ΕΕΤΣ (ΛΣ)"] = protocol;
+                    Log(referencecode, "Info", "comments: " + comments);
+                    item["Σχόλιο Απόφ. ΕΕΤΣ (ΛΣ)"] = comments;
+                    item["Status ΔΠΧΠ (ΛΣ)"] = new SPFieldLookupValue(7, "ΕΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ");
+                    item["sent2TEE"] = "ΕΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ";
+                    item.Update();
+                }
+                else if (statusEETS == "Το αίτημα εγκρίθηκε υπό όρους")
+                {
+                    Log(referencecode, "Info", "decisionDate: " + decisionDate);
+                    if (DateTime.TryParse(decisionDate, out dummydate))
+                    {
+                        Log(referencecode, "Info", "dummydate: " + dummydate);
+                        item["Ημ/νία Απόφασης ΕΕΤΣ (ΛΣ)"] = dummydate;
+                    }
+                    Log(referencecode, "Info", "replyDate: " + replyDate);
+                    if (DateTime.TryParse(replyDate, out dummydate))
+                    {
+                        Log(referencecode, "Info", "dummydate: " + dummydate);
+                        item["Ημ/νία λήψης απόφασης ΕΕΤΣ (ΛΣ)"] = dummydate;
+                    }
+                    Log(referencecode, "Info", "amount: " + amount);
+                    //item["Εγκριθέν ποσό από ΕΕΤΣ (ΛΣ)"] = amount;
+                    string lsApprovedAmount = item.Fields.GetFieldByInternalName("egkrithenPosoApoEETs").InternalName;
+                    item[lsApprovedAmount] = amount; //FYI: issue 251
+
+                    //Εγκριθέν ποσό από ΕΕΤΣ (ΛΣ)
+                    Log(referencecode, "Info", "ΕΕΤΣ protocol: " + protocol);
+                    item["Αρ.Πρωτ. Αποφάσεως ΕΕΤΣ (ΛΣ)"] = protocol;
+                    Log(referencecode, "Info", "comments: " + comments);
+                    item["Σχόλιο Απόφ. ΕΕΤΣ (ΛΣ)"] = comments;
+                    item["Status ΔΠΧΠ (ΛΣ)"] = new SPFieldLookupValue(11, "ΕΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ ΥΠΟ ΟΡΟΥΣ");
+                    item["sent2TEE"] = "ΕΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ ΥΠΟ ΟΡΟΥΣ";
+                    item.Update();
+                }
+                else if (statusEETS == "Το αίτημα απορρίφθηκε")
+                {
+                    Log(referencecode, "Info", "decisionDate: " + decisionDate);
+                    if (DateTime.TryParse(decisionDate, out dummydate))
+                    {
+                        Log(referencecode, "Info", "dummydate: " + dummydate);
+                        item["Ημ/νία Απόφασης ΕΕΤΣ (ΛΣ)"] = dummydate;
+                    }
+                    Log(referencecode, "Info", "replyDate: " + replyDate);
+                    if (DateTime.TryParse(replyDate, out dummydate))
+                    {
+                        Log(referencecode, "Info", "dummydate: " + dummydate);
+                        item["Ημ/νία λήψης απόφασης ΕΕΤΣ (ΛΣ)"] = dummydate;
+                    }
+                    Log(referencecode, "Info", "amount: " + amount);
+                    
+                    //item["Εγκριθέν ποσό από ΕΕΤΣ (ΛΣ)"] = amount;
+                    string lsApprovedAmount = item.Fields.GetFieldByInternalName("egkrithenPosoApoEETs").InternalName;
+                    item[lsApprovedAmount] = amount; //FYI: issue 251
+
+
+                    //Εγκριθέν ποσό από ΕΕΤΣ (ΛΣ)
+                    Log(referencecode, "Info", "ΕΕΤΣ protocol: " + protocol);
+                    item["Αρ.Πρωτ. Αποφάσεως ΕΕΤΣ (ΛΣ)"] = protocol;
+                    Log(referencecode, "Info", "comments: " + comments);
+                    item["Σχόλιο Απόφ. ΕΕΤΣ (ΛΣ)"] = comments;
+                    item["Status ΔΠΧΠ (ΛΣ)"] = new SPFieldLookupValue(9, "ΕΕΤΣ ΑΠΟΡΡΙΨΗ");
+
+                    //FYI: email 'mapping status web service communication with TTE'
+                    item["Status Μονάδας Διαχείρισης (ΛΣ)"] = new SPFieldLookupValue(5, "ΑΚΥΡΩΜΕΝΟ");
+                    item["Status Υποβολής (ΛΣ)"] = new SPFieldLookupValue(6, "ΑΚΥΡΩΜΕΝΟ");
+
+                    item["sent2TEE"] = "ΕΕΤΣ ΑΠΟΡΡΙΨΗ";
+                    item.Update();
+
+                }
+                else if (statusEETS == "Σφάλμα επεξεργασίας")
+                {
+                    item["Λεπτομέρειες Απόρριψης"] = comments;
+                    item["sent2TEE"] = "error";
+                    item.Update();
+                }
+                else if (statusEETS == "Ο αριθμός αιτήματος έχει χρησιμοποιηθεί ήδη")
+                {
+                    item["Λεπτομέρειες Απόρριψης"] = comments;
+                    item["sent2TEE"] = "error";
+                    item.Update();
+                }
+                else if (statusEETS == "Τεχνικό πρόβλημα" || statusEETS == "Σφάλμα αποστολής")
+                {
+                    item["Λεπτομέρειες Απόρριψης"] = comments;
+                    item["sent2TEE"] = "error";
+                    item.Update();
+                }
+                else if (statusEETS == "Το αίτημα έχει αποσταλεί")
+                {
+                    item["Λεπτομέρειες Απόρριψης"] = "Το αίτημα έχει αποσταλεί";
+                    item.Update();
+                }
+                else if (statusEETS == "Το αίτημα έχει αποσταλεί για ανάκληση")
+                {
+                    item["Λεπτομέρειες Απόρριψης"] = comments;
+                    item.Update();
+                }
+                else if (statusEETS == "Το αίτημα ανακλήθηκε επιτυχώς")
+                {
+                    item["Status Μονάδας Διαχείρισης (ΛΣ)"] = new SPFieldLookupValue(5, "ΑΚΥΡΩΜΕΝΟ");
+                    //FYI: email 'mapping status web service communication with TTE'
+                    item["Status Υποβολής (ΛΣ)"] = new SPFieldLookupValue(6, "ΑΚΥΡΩΜΕΝΟ");
+
+                    //FYI: issue 282 item["sent2TEE"] = ""; 
+                    item["Λεπτομέρειες Απόρριψης"] = comments;
+                    item.Update();
+                }
+                else
+                {
+                    Log(referencecode, "Error", "2 - Το αίτημα με statusEETS (" + statusEETS + ") με id (" + item.ID + ") δεν ενημερώθηκε λόγω οτι δεν ήταν στο σωστό status :" +
+                  " Status Υποβολής (ΛΣ): " + IsNull(item["Status Υποβολής (ΛΣ)"], "") +
+                  " Status Μονάδας Διαχείρισης (ΛΣ): " + IsNull(item["Status Μονάδας Διαχείρισης (ΛΣ)"], "") +
+                  " Status ΔΠΧΠ (ΛΣ): " + IsNull(item["Status ΔΠΧΠ (ΛΣ)"], ""));
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log(referencecode, "Error", ex.ToString());
+                return false;
+            }
+        }
+
+        #region Helpers
+        private string IsNull(object val) { string defaultmissingvalue = ""; string defaultformatdate = ""; return IsNull(val, defaultmissingvalue, defaultformatdate); }
+        private string IsNull(object val, string missingvalue) { string defaultformatdate = ""; return IsNull(val, missingvalue, defaultformatdate); }
+        private string IsNull(object val, string missingvalue, string formatdate)
+        {
+            if (val == null)
+            {
+                return missingvalue;
+            }
+            else
+            {
+                if (formatdate.Equals(""))
+                {
+                    if (val.ToString().IndexOf("#") > 0)
+                    {
+                        return val.ToString().Substring(val.ToString().IndexOf("#") + 1, val.ToString().Length - 1 - val.ToString().IndexOf("#"));
+                    }
+                    else
+                    {
+                        return val.ToString();
+                    }
+                }
+                else
+                {
+                    return DateTime.Parse(val.ToString()).ToString(formatdate);
+                }
+            }
+
+
+        }
+        private object IsDecimalNull(object val, object missingvalue)
+        {
+            if (val == null)
+            {
+                return missingvalue;
+            }
+            else
+            {
+                return val;
+            }
+        }
+
+        void Log(string mycode, string status, string msg)
+        {
+            try
+            {
+                SPSecurity.RunWithElevatedPrivileges(delegate()
+                {
+                    using (SPSite oSite = new SPSite(sharePointSite))
+                    {
+                        using (SPWeb oWeb = oSite.OpenWeb())
+                        {
+                            SPList dbglist = oWeb.GetList(AddPrefix(oWeb) + "/Lists/debuglist");
+                            var lastItem = GetLastItem(dbglist);
+                            if (ItemExists(lastItem, mycode, status))
+                            {
+                                lastItem["counter"] = lastItem["counter"] == null ? 1 : Convert.ToInt32(lastItem["counter"]) + 1;
+                                lastItem.Update();
+                            }
+                            else
+                            {
+                                SPListItem dbgitm = dbglist.AddItem();
+                                dbgitm["module"] = "web service";
+                                dbgitm["status"] = status;
+                                dbgitm["code"] = mycode;
+                                if (msg.Length < 254)
+                                {
+                                    dbgitm["Title"] = msg;
+
+                                }
+                                else
+                                {
+                                    dbgitm["Title"] = msg.Substring(0, 100) + "...";
+                                    dbgitm["details"] = msg;
+                                }
+                                dbgitm["counter"] = 1;
+                                dbgitm.Update();
+                            }
+                        }
+                    }
+                });
+            }//end try
+            catch (Exception ex)
+            {
+                //using (StreamWriter w = File.AppendText("d:\\export\\WSpnpdemands_log.txt"))
+                using (StreamWriter w = File.AppendText("c:\\temp\\WSpnpdemands_log.txt"))
+                {
+                    w.WriteLine(DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss") + ": " + "Error in debug List :" + ex.ToString());
+                }
+            }
+
+        }
+
+        private string AddPrefix(SPWeb web)
+        {
+            string siteprefix = ""; //Dev
+
+            if (!web.Url.ToLower().Contains("dev"))
+            { siteprefix = "/TODO/pnpdemands"; } //Prod
+
+            return siteprefix;
+        }
+
+        private string NormalizeValue(string val)
+         {
+             string res = val;
+
+             if (res == "missing")
+                 res = "";
+
+             return res;
+         }
+
+        private SPListItemCollection GetListItemCollection(SPList list, string queryField, string queryFieldDataType, string queryValue)
+        {
+            SPQuery query = new SPQuery();
+            query.ViewXml =
+                "<View Scope=\"RecursiveAll\"> " +
+                "<Query>" +
+                "<Where>" +
+                            "<Eq>" +
+                            "<FieldRef Name='" + queryField + "' />" +
+                            "<Value Type='" + queryFieldDataType + "'>" + queryValue + "</Value>" +
+                            "</Eq>" +
+                "</Where>" +
+                "</Query>" +
+                "</View>";
+            SPListItemCollection items = list.GetItems(query);
+            return items;
+        }
+
+        SPListItem GetLastItem(SPList debuglist)
+        {
+            var query = new SPQuery();
+            query.RowLimit = 1;
+            query.Query = "<OrderBy><FieldRef Name='ID' Ascending='FALSE' /></OrderBy>";
+
+            return debuglist.GetItems(query).Cast<SPListItem>().FirstOrDefault();
+        }
+
+        bool ItemExists(SPListItem item, string code, string status)
+        {
+            return item["code"] != null && item["code"].ToString() == code
+                && item["status"] != null && item["status"].ToString() == status
+                && item["module"] != null && item["module"].ToString() == "web service";
+        }
+
+        #endregion
+    }
+
+}
