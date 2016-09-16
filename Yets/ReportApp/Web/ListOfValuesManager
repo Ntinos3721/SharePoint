@@ -1,0 +1,160 @@
+using ReportApplication.Common;
+using ReportApplication.DataAccess;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Web;
+
+namespace ReportApplication.Managers
+{
+
+    public class ListOfValuesManager
+    {
+        string EMPTY_VALUE = "";
+
+        readonly YETSEETSReportEntities dataContext;
+        readonly List<string> cacheKatastimata;
+        readonly List<string> cacheMDStatuses;
+        readonly List<string> cacheYpovolisStatuses;
+        readonly List<string> cacheDPXPStatuses;
+        readonly List<string> cacheMonadaEkatharisisStatuses;
+
+        public ListOfValuesManager(YETSEETSReportEntities dataContext)
+        {
+            this.dataContext = dataContext;
+            cacheKatastimata = new List<string>();
+            cacheMDStatuses = new List<string>();
+            cacheYpovolisStatuses = new List<string>();
+            cacheDPXPStatuses = new List<string>();
+            cacheMonadaEkatharisisStatuses = new List<string>();
+        }
+
+        public List<string> GetKatastimata()
+        {
+            List<string> katastimata;
+
+            if (CacheManager.Get(CacheKeys.KATASTHMA_KEY, out katastimata))
+            {
+                return katastimata;
+            }
+            else
+            {
+                katastimata = dataContext.Aitimatas.Where(x => x.Katastima != null).Select(s => s.Katastima).Distinct().ToList();
+                katastimata.Insert(0, EMPTY_VALUE);
+                CacheManager.Add(katastimata, CacheKeys.KATASTHMA_KEY);
+
+                return katastimata;
+            }
+        }
+
+        public List<string> GetMD()
+        {
+            List<string> monadesDiaxeirisis;
+
+            if (CacheManager.Get(CacheKeys.MD_KEY, out monadesDiaxeirisis))
+            {
+                return monadesDiaxeirisis;
+            }
+            else
+            {
+                monadesDiaxeirisis = dataContext.Aitimatas.Where(x => x.MonadaDiax != null).Select(s => s.MonadaDiax).Distinct().ToList();
+                monadesDiaxeirisis.Insert(0, EMPTY_VALUE);
+                CacheManager.Add(monadesDiaxeirisis, CacheKeys.MD_KEY);
+
+                return monadesDiaxeirisis;
+            }
+        }
+
+        public List<string> GetMDStatuses()
+        {
+            List<string> values = null;
+
+            if (!cacheMDStatuses.Any())
+            {
+                values = dataContext.Aitimatas.Where(x => x.statusMD != null).Select(s => s.statusMD).Distinct().ToList();
+                values.ForEach(x => cacheMDStatuses.Add(x));
+                values.Insert(0, EMPTY_VALUE);
+                return values;
+            }
+            else
+            {
+                return cacheMDStatuses;
+            }
+        }
+
+        public List<string> GetYpovolisStatuses()
+        {
+            List<string> values = null;
+
+            if (!cacheYpovolisStatuses.Any())
+            {
+                values = dataContext.Aitimatas.Where(x => x.StatusYpovolis != null).Select(s => s.StatusYpovolis).Distinct().ToList();
+                values.ForEach(x => cacheYpovolisStatuses.Add(x));
+                values.Insert(0, EMPTY_VALUE);
+                return values;
+            }
+            else
+            {
+                return cacheYpovolisStatuses;
+            }
+        }
+
+        public List<string> GetDPXPStatuses()
+        {
+            List<string> values = null;
+
+            if (!cacheDPXPStatuses.Any())
+            {
+                values = dataContext.Aitimatas.Where(x => x.statusDPXP != null).Select(s => s.statusDPXP).Distinct().ToList();
+                values.ForEach(x => cacheDPXPStatuses.Add(x));
+                values.Insert(0, EMPTY_VALUE);
+                return values;
+            }
+            else
+            {
+                return cacheDPXPStatuses;
+            }
+        }
+
+        public List<string> GetMonadaEkatharisisStatuses()
+        {
+            List<string> values = null;
+
+            if (!cacheMonadaEkatharisisStatuses.Any())
+            {
+                values = dataContext.Aitimatas.Where(x => x.statusMonadaEkkatharisis != null).Select(s => s.statusMonadaEkkatharisis).Distinct().ToList();
+                values.ForEach(x => cacheMonadaEkatharisisStatuses.Add(x));
+                values.Insert(0, EMPTY_VALUE);
+                return values;
+            }
+            else
+            {
+                return cacheMonadaEkatharisisStatuses;
+            }
+        }
+
+        public List<string> GetStatusesYpovolis()
+        {
+            var values = this.GetPublicConstants(typeof(StatusYpovolis));
+
+            return values.Any() ? 
+                this.GetPublicConstants(typeof(StatusYpovolis)).Select(s => s.GetValue(s).ToString()).ToList() : new List<string>();
+        }
+
+        public List<string> GetStatusesDPXP()
+        {
+            var values = this.GetPublicConstants(typeof(StatusDPXP));
+
+            return values.Any() ?
+                this.GetPublicConstants(typeof(StatusDPXP)).Select(s => s.GetValue(s).ToString()).ToList() : new List<string>();
+        }
+
+        IEnumerable<FieldInfo> GetPublicConstants(Type type)
+        {
+            FieldInfo[] infos = type.GetFields(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
+
+            return infos.Where(x => x.IsLiteral && !x.IsInitOnly && !x.IsPrivate);
+        }
+    }
+}
