@@ -1,0 +1,344 @@
+using System;
+using Microsoft.SharePoint;
+using Microsoft.SharePoint.WebControls;
+using System.Data.SqlClient;
+using System.Data;
+using YETSEETSCommon;
+
+namespace SPAppPage.Layouts.SPAppPage
+{
+    public partial class ReportSyncPage : LayoutsPageBase
+    {
+        protected void Page_Load(object sender, EventArgs e)
+        {
+        }
+
+        protected void btnSync_Click(object sender, EventArgs e)
+        {
+            if (ddAction.SelectedValue == "Insert")
+                SPSecurity.RunWithElevatedPrivileges(Insert);
+            else if (ddAction.SelectedValue == "Update")
+                SPSecurity.RunWithElevatedPrivileges(Update);
+            else if (ddAction.SelectedValue == "Delete")
+                SPSecurity.RunWithElevatedPrivileges(Delete);
+            else if (ddAction.SelectedValue == "DeleteNoCheck")
+                SPSecurity.RunWithElevatedPrivileges(DeleteNoCheck);
+        }
+
+        void Insert()
+        {
+            try
+            {
+                lbMessage.Text = string.Empty;
+                lbStack.Text = string.Empty;
+
+                string id = txtSPID.Text;
+                if (string.IsNullOrWhiteSpace(id))
+                    return;
+
+                bool errorExists = false;
+                string[] spids = id.Split(new string[] { "," }, StringSplitOptions.RemoveEmptyEntries);
+
+                string listUrl = ResolveListUrl();
+
+                SPList list = SPContext.Current.Web.GetList(listUrl);
+                if (list == null)
+                {
+                    lbMessage.Text = "Η λίστα δεν έγινε resolved.";
+                    lbMessage.ForeColor = System.Drawing.Color.Red;
+                    errorExists = true;
+                    return;
+                }
+
+                SPListItem listItem = null;
+
+                foreach (string spid in spids)
+                {
+                    int result;
+                    if (!Int32.TryParse(spid, out result))
+                    {
+                        lbMessage.Text = "To id που εισάγατε δεν είναι έγκυρο";
+                        lbMessage.ForeColor = System.Drawing.Color.Red;
+                        errorExists = true;
+                        break;
+                    }
+
+                    try
+                    {
+                        listItem = list.GetItemById(Convert.ToInt32(spid));
+
+                        var dbHelper = new DBHelper(SPContext.Current.Web, listItem);
+                        //FYI: Check if already exists in report db
+                        if (dbHelper.ItemInDBexists(spid))
+                        {
+                            lbMessage.Text = string.Format("Το item με κωδικό: {0} υπάρχει ήδη στη report DB", listItem.ID);
+                            lbMessage.ForeColor = System.Drawing.Color.Red;
+                            errorExists = true;
+                            continue;
+                        }
+
+                        //FYI: insert into Aitimata based on current spid values
+                        dbHelper.InsertSQLAitima();
+                    }
+                    catch (Exception ex)
+                    {
+                        lbMessage.Text = ex.Message;
+                        if (listItem != null) lbMessage.Text = string.Format("Error during insert for item: {0}, Message: {1}", listItem.ID, ex.Message);
+                        lbMessage.ForeColor = System.Drawing.Color.Red;
+                        errorExists = true;
+                        break;
+                    }
+                }
+
+                if (!errorExists)
+                {
+                    lbMessage.Text = "Η διαδικασία του Insert ολοκληρώθηκε επιτυχώς";
+                    lbMessage.ForeColor = System.Drawing.Color.Green;
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError(ex);
+            }
+        }
+
+        void Update()
+        {
+            try
+            {
+                string spid = txtSPID.Text;
+                lbMessage.Text = string.Empty;
+                lbStack.Text = string.Empty;
+
+                bool errorExists = false;
+
+                int result;
+                if (!Int32.TryParse(spid, out result))
+                {
+                    lbMessage.Text = "To id που εισάγατε δεν είναι έγκυρο";
+                    lbMessage.ForeColor = System.Drawing.Color.Red;
+                    errorExists = true;
+                    return;
+                }
+
+                string listUrl = ResolveListUrl();
+
+                SPList list = SPContext.Current.Web.GetList(listUrl);
+                if (list == null)
+                {
+                    lbMessage.Text = "Η λίστα δεν έγινε resolved.";
+                    lbMessage.ForeColor = System.Drawing.Color.Red;
+                    errorExists = true;
+                    return;
+                }
+
+                SPListItem listItem = null;
+
+                try
+                {
+                    int x = Convert.ToInt32(spid);
+                    listItem = list.GetItemById(Convert.ToInt32(spid));
+
+                    var dbHelper = new DBHelper(SPContext.Current.Web, listItem);
+
+                    if (dbHelper.ItemInDBexists(spid))
+                    {
+                        //FYI: Insert into Aitimata history
+                        dbHelper.InsertSQLHistory(HistoryAction.Update);
+                        //FYI: Update item in Aitimata with item's current values
+                        dbHelper.UpdateSQLAitima();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lbMessage.Text = ex.Message;
+                    if (listItem != null) lbMessage.Text = string.Format("Error during update for item: {0}, Message: {1}", listItem.ID, ex.Message);
+                    lbMessage.ForeColor = System.Drawing.Color.Red;
+                    errorExists = true;
+                }
+
+                if (!errorExists)
+                {
+                    lbMessage.Text = "Η διαδικασία του Update ολοκληρώθηκε επιτυχώς";
+                    lbMessage.ForeColor = System.Drawing.Color.Green;
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError(ex);
+            }
+        }
+
+        void Delete()
+        {
+            try
+            {
+                string id = txtSPID.Text;
+                lbMessage.Text = string.Empty;
+                lbStack.Text = string.Empty;
+
+                if (string.IsNullOrWhiteSpace(id))
+                    return;
+
+                bool errorExists = false;
+                string[] spids = id.Split(new string[] { "," }, StringSplitOptions.RemoveEmptyEntries);
+
+                string listUrl = ResolveListUrl();
+
+                SPList list = SPContext.Current.Web.GetList(listUrl);
+                if (list == null)
+                {
+                    lbMessage.Text = "Η λίστα δεν έγινε resolved.";
+                    lbMessage.ForeColor = System.Drawing.Color.Red;
+                    errorExists = true;
+                    return;
+                }
+
+                SPListItem listItem = null;
+
+                foreach (string spid in spids)
+                {
+                    int result;
+                    if (!Int32.TryParse(spid, out result))
+                    {
+                        lbMessage.Text = "To id που εισάγατε δεν είναι έγκυρο";
+                        lbMessage.ForeColor = System.Drawing.Color.Red;
+                        errorExists = true;
+                        break;
+                    }
+
+                    try
+                    {
+                        listItem = list.GetItemById(Convert.ToInt32(spid));
+
+                        var dbHelper = new DBHelper(SPContext.Current.Web, listItem);
+
+                        //FYI: Insert into Aitimata history
+                        dbHelper.InsertSQLHistory(HistoryAction.Delete);
+                        //FYI: delete from Aitimata based on current spid values
+                        dbHelper.DeleteSQLAitima();
+                    }
+                    catch (Exception ex)
+                    {
+                        lbMessage.Text = ex.Message;
+                        if (listItem != null) lbMessage.Text = string.Format("Error during delete for item: {0}, Message: {1}", listItem.ID, ex.Message);
+                        lbMessage.ForeColor = System.Drawing.Color.Red;
+                        errorExists = true;
+                        break;
+                    }
+                }
+
+                if (!errorExists)
+                {
+                    lbMessage.Text = "Η διαδικασία του Delete ολοκληρώθηκε επιτυχώς";
+                    lbMessage.ForeColor = System.Drawing.Color.Green;
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError(ex);
+            }
+        }
+
+        /// <summary>
+        /// A help method, just delete from Report DB without checking if item exists in SPS.
+        /// </summary>
+        void DeleteNoCheck()
+        {
+            try
+            {
+                string id = txtSPID.Text;
+                lbMessage.Text = string.Empty;
+                lbStack.Text = string.Empty;
+
+                if (string.IsNullOrWhiteSpace(id))
+                    return;
+
+                bool errorExists = false;
+                string[] spids = id.Split(new string[] { "," }, StringSplitOptions.RemoveEmptyEntries);
+
+                foreach (string spid in spids)
+                {
+                    int result;
+                    if (!Int32.TryParse(spid, out result))
+                    {
+                        lbMessage.Text = "To id που εισάγατε δεν είναι έγκυρο";
+                        lbMessage.ForeColor = System.Drawing.Color.Red;
+                        errorExists = true;
+                        break;
+                    }
+
+                    try
+                    {
+                        var dbHelper = new DBHelper(SPContext.Current.Web, null);
+
+                        string connectionString = dbHelper.ResolveSQLConnectionString();
+                        using (SqlConnection conn = new SqlConnection(connectionString))
+                        {
+                            conn.Open();
+                            using (SqlCommand command = new SqlCommand("DELETE from [Aitimata] where [SPID] = @SPID", conn))
+                            {
+                                var spidToDelete = new SqlParameter("@SPID", SqlDbType.Int);
+                                spidToDelete.Value = result;
+
+                                command.Parameters.Add(spidToDelete);
+                                command.ExecuteNonQuery();
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        lbMessage.Text = ex.Message;
+                        lbMessage.ForeColor = System.Drawing.Color.Red;
+                        errorExists = true;
+                        break;
+                    }
+                }
+
+                if (!errorExists)
+                {
+                    lbMessage.Text = "Η διαδικασία του Delete ολοκληρώθηκε επιτυχώς";
+                    lbMessage.ForeColor = System.Drawing.Color.Green;
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError(ex);
+            }
+        }
+
+        void LogError(Exception ex)
+        {
+            string message = ex.Message;
+            string stack = ex.StackTrace;
+            if (ex.InnerException != null)
+            {
+                message = ex.InnerException.Message;
+                stack = ex.InnerException.StackTrace;
+            }
+
+            lbMessage.Text = message;
+            lbStack.Text = stack;
+            lbMessage.ForeColor = System.Drawing.Color.Red;
+        }
+
+        string ResolveListUrl()
+        {
+            SPWeb web = SPContext.Current.Web;
+
+            if (String.IsNullOrWhiteSpace(web.Url))
+            {
+                lbMessage.Text = "To site url είναι κενό";
+                lbMessage.ForeColor = System.Drawing.Color.Red;
+                return null;
+            }
+
+            if (web.Url.ToLower().Contains("dev") || web.Url.ToLower().Contains("test"))
+                return "/Lists/timologia";
+            else
+                return "/TODO/TODO/Lists/timologia";
+        }
+
+        
+    }
+}
