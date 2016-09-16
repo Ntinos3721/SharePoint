@@ -1,6 +1,50 @@
-sps free tools
+/* Blogs */
+http://www.matthiaseinig.de/
+https://blogs.msdn.microsoft.com/torstenmandelkow/
+
+/* Migration */
+http://en.share-gate.com/sharepoint-migration
+
+/* sps free tools */
 http://www.computerworld.com/article/2470562/infrastructure-management/118566-10-free-SharePoint-tools.html#slide1
 
-SharePoint Feature Administration and Clean Up Tool
+/* SharePoint Feature Administration and Clean Up Tool */
 https://featureadmin.codeplex.com/
+
+/* Get All Items from a List */
+https://coder87.wordpress.com/2012/03/06/spquery-get-all-items-from-sharepoint-list/
+http://ethan-deng.blogspot.gr/2013/03/get-all-items-from-list-get-all-list.html
+
+/* Data Paging */
+http://apmblog.dynatrace.com/2009/01/15/sharepoint-page-through-sharepoint-lists/
+
+/* SharePoint Software Factory */
+http://spsf.codeplex.com/
+
+/* Storing Database Connection Settings in the Secure Store */
+http://social.technet.microsoft.com/wiki/contents/articles/20549.sharepoint-2010-storing-database-connection-settings-in-the-secure-store.aspx
+
+/* Infopath web service cross domain */
+http://stevemannspath.blogspot.gr/2013/11/sharepoint-2013-infopath-2013-enabling.html
+
+/* Field validation */
+http://techtrainingnotes.blogspot.gr/2015/10/sharepoint-column-validation-examples.html
+
+/* Get login name */
+http://sharepoint.stackexchange.com/questions/73032/get-current-user-in-client-object-model-with-javascript
+http://www.enjoysharepoint.com/Articles/Details/get-current-logged-in-username-in-sharepoint-2013-using-javascript-20982.aspx
+
+/* Deploy a Business Connectivity Services on-premises solution in SharePoint 2013 */
+https://technet.microsoft.com/en-us/library/jj219584.aspx
+
+/* Disable Sharepoint item events firing during item update */
+https://adrianhenke.wordpress.com/2010/01/29/disable-item-events-firing-during-item-update/
+http://stackoverflow.com/questions/2466533/sharepoint-workflow-how-to-update-the-item-without-triggering-the-workflow-agai
+
+
+
+
+
+
+
 
