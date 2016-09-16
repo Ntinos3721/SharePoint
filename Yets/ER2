@@ -1,0 +1,1450 @@
+using System;
+using System.IO;
+using System.Security.Permissions;
+using Microsoft.SharePoint;
+using Microsoft.SharePoint.Utilities;
+using Microsoft.SharePoint.Workflow;
+using System.Data.SqlClient;
+using System.Data;
+using System.Globalization;
+using System.IO.Compression;
+using System.Threading;
+using System.Text;
+using System.Web;
+
+namespace PNPDemandsER.CodeGenER
+{
+    public partial class CodeGenER : SPItemEventReceiver
+    {
+        void myprocessItem(string mycode, SPItemEventProperties properties, SPListItem item, string action)
+        {
+            try
+            {
+                SPListItemCollection listItems = GetListItemCollection(properties, "Πρωτόκολλο ΧΧΧΧ", "Title", "Text", mycode);
+
+                if (listItems.Count == 0)
+                {
+                    SPList protokolo = properties.Web.Lists["Πρωτόκολλο ΧΧΧΧ"];
+                    SPListItem oSPListItem = protokolo.Items.Add();
+                    oSPListItem["Title"] = mycode;
+                    oSPListItem.Update();
+
+
+                    oSPListItem["pnpdemand"] = "\"" + properties.WebUrl + "/" + item.ParentList.RootFolder.Url.ToString() + "/" + IsNull(item["Κωδικός Καταστήματος"], "") +
+                        "?FilterField1=KodikosAitimatos&FilterValue1=" + mycode + "\"";
+                    oSPListItem["status"] = "Επεξεργασία πρός Αποστολή";
+
+                    SPListItemCollection additionallistItems = GetListItemCollection(properties, "ΛΙΣΤΑ", "KodikosAitimatos", "Text", mycode);
+
+                    try
+                    {
+                        oSPListItem.Update();
+
+                        #region init
+                        string fcontent = "";
+                        string dirname = action + mycode;
+                        string fname = "";
+                        string flocation = "c:\\temp\\exporttemp\\";
+                        string flocationzip = "c:\\temp\\export\\";
+                        #endregion
+
+                        try
+                        {
+                            Directory.CreateDirectory(flocation + dirname);
+                        }
+                        catch (Exception x) { Log(mycode, "Error", properties, "At directory : " + x.Message); }
+
+                        #region update additional items
+                        int i = 0;
+                        foreach (SPListItem additionalitm in additionallistItems)
+                        {
+
+                            //AT | 14.06.2016 | Save conflict change. 
+                            //Items with "Ημερομηνία Αποστολής Εγκρίσεως ΧΧΧΧ/ΧΧΧΧ" == null 
+                            SPListItem aItem = properties.List.GetItemByUniqueId(additionalitm.UniqueId);
+
+                            if (!IsNull(aItem["Status Υποβολής"]).Equals("ΑΚΥΡΩΜΕΝΟ"))
+                            {
+                                if (IsNull(aItem["Status Υποβολής"]).Equals("ΠΡΟΣ ΑΞΙΟΛΟΓΗΣΗ"))
+                                {
+                                    if (IsNull(aItem["status ΜΟΝΑΔΑΣ ΔΙΑΧΕΙΡΙΣΗΣ"]).Equals("ΕΛΕΓΜΕΝΟ ΠΡΟΣ ΧΧΧΧ"))
+                                    {
+                                        if (IsNull(aItem["status ΔΠΧΠ"]).Equals("ΧΧΧΧ ΥΠΟ ΕΞΕΤΑΣΗ"))
+                                        {
+                                            fcontent = "";
+                                            aItem["sent2TEE"] = "true";
+                                            if (aItem[@"Ημερομηνία Αποστολής Εγκρίσεως ΧΧΧΧ/ΧΧΧΧ"] == null)
+                                            {
+                                                aItem[@"Ημερομηνία Αποστολής Εγκρίσεως ΧΧΧΧ/ΧΧΧΧ"] = DateTime.Now;
+                                            }
+                                            aItem.Update();
+
+                                            fname = getfname(properties, aItem);
+                                            
+                                            i++;
+                                            fcontent = CreateLine(properties, aItem);
+
+                                            string[] checkfcontent = fcontent.Split(';');
+
+                                            if (checkfcontent.Length != 29)
+                                            {
+
+                                                oSPListItem["status"] = "τα πεδία (" + checkfcontent.Length + ") είναι λάθος";
+                                                oSPListItem["Λεπτομέρειες Απόρριψης"] = fcontent;
+                                                oSPListItem.Update();
+
+                                                rollback(properties, "KodikosAitimatos", mycode);
+                                                break;
+                                            }
+
+                                            oSPListItem["status"] = "τα πεδία στην γραμμή " + i + " είναι :" + (checkfcontent.Length - 1).ToString();
+                                            oSPListItem.Update();
+
+
+                                            // save the attachments of each item
+                                            #region att
+                                            foreach (String attachmentname in aItem.Attachments)
+                                            {
+                                                String attachmentAbsoluteURL =
+                                                aItem.Attachments.UrlPrefix // gets the containing directory URL
+                                                + attachmentname;
+
+                                                // To get the SPSile reference to the attachment just use this code
+                                                SPFile attachmentFile = aItem.Web.GetFile(attachmentAbsoluteURL);
+
+                                                // To read the file content simply use this code
+                                                Stream stream = attachmentFile.OpenBinaryStream();
+                                                try
+                                                {
+
+                                                    SPSecurity.RunWithElevatedPrivileges(delegate()
+                                                    {
+                                                        using (SPSite site = new SPSite(properties.Web.Site.ID))
+                                                        {
+                                                            //FYI: issue 260
+                                                            //using (var fileStream = File.Create(flocation + dirname + "\\" + attachmentname))
+                                                            using (var fileStream = File.Create(flocation + dirname + "\\" + string.Format("{0}-{1}", additionalitm.ID, attachmentname)))
+                                                            {
+                                                                stream.Seek(0, SeekOrigin.Begin);
+                                                                stream.CopyTo(fileStream);
+                                                            }
+                                                        }
+                                                    });
+
+                                                }
+                                                catch (Exception ex)
+                                                {
+                                                    Log(mycode, "Error", properties, "Error στο attachemnt (" + attachmentname + ") :" + ex.ToString());
+                                                }
+
+
+                                            }
+                                            #endregion
+
+                                            write2file(properties, mycode, flocation, dirname, fname, fcontent);
+
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        #endregion
+                        oSPListItem["childNo"] = i;
+                        oSPListItem.Update();
+                        #region create zip
+                        Thread thread = new Thread(delegate()
+                        {
+                            // Code here.
+                            Thread.Sleep(10000);
+                            try
+                            {
+                                // implementation details omitted
+
+                                #region add csv to protokolo
+                                FileStream fStreamcsv1 = File.OpenRead(flocation + dirname + "\\" + fname);
+                                string fileNamecsv1 = fStreamcsv1.Name.Substring(3);
+                                byte[] contentscsv1 = new byte[fStreamcsv1.Length];
+                                fStreamcsv1.Read(contentscsv1, 0, (int)fStreamcsv1.Length);
+                                fStreamcsv1.Close();
+
+                                oSPListItem.Attachments.Add(fname, contentscsv1);
+                                oSPListItem["status"] = "csv Αρχείο Αποστολής αποθηκεύτηκε!";
+
+                                #endregion
+
+                                if (File.Exists(flocationzip + dirname + ".zip"))
+                                {
+                                    File.Delete(flocationzip + dirname + ".zip");
+                                }
+                                ZipFile.CreateFromDirectory(flocation + dirname, flocationzip + dirname + ".zip", CompressionLevel.Fastest, true);
+                                Thread.Sleep(10000);
+                                System.IO.DirectoryInfo downloadedMessageInfo = new DirectoryInfo(flocation + dirname);
+
+                                foreach (FileInfo file in downloadedMessageInfo.GetFiles())
+                                {
+                                    file.Delete();
+                                }
+                                foreach (DirectoryInfo dir in downloadedMessageInfo.GetDirectories())
+                                {
+                                    dir.Delete(true);
+                                }
+
+                                downloadedMessageInfo.Delete(true);
+
+
+                                #region update protokolo zip
+                                FileStream fStream = File.OpenRead(flocationzip + dirname + ".zip");
+                                string fileName = fStream.Name.Substring(3);
+                                byte[] contents = new byte[fStream.Length];
+                                fStream.Read(contents, 0, (int)fStream.Length);
+                                fStream.Close();
+                                oSPListItem.Attachments.Add(dirname + ".zip", contents);
+                                oSPListItem["status"] = "zip Αρχείο Αποστολής αποθηκεύτηκε!";
+                                oSPListItem.Update();
+                                #endregion
+
+
+                            }
+                            catch (Exception ex)
+                            {
+                                // log errors
+                                Log(mycode, "Error", properties, ex.ToString());
+                            }
+                        });
+                        thread.IsBackground = true;
+                        thread.Start();
+                        #endregion
+                    }
+                    catch (Exception ex)
+                    {
+                        Log(mycode, "Info", properties, "Additional protocol sent prevented :" + ex.ToString());
+                    }
+                    //System.Threading.Thread.Sleep(2000);
+                } //end if item exist at protocol
+                else
+                {
+                    Log(mycode, "Warning", properties, "Πρωτόκολλο ΧΧΧΧ " + mycode + "υπάρχει");
+                }
+
+
+            }//end try
+            catch (Exception ex)
+            {
+                Log(mycode, "Error", properties, ex.ToString());
+            }
+
+        }//end my process item
+
+        void cancelmyItem(string mycode, SPItemEventProperties properties, string action)
+        {
+            try
+            {
+                SPListItemCollection listItems = GetListItemCollection(properties, "Πρωτόκολλο ΧΧΧΧ", "Title", "Text", mycode);
+
+                if (listItems.Count == 1)
+                {
+                    SPList protokolo = properties.Web.Lists["Πρωτόκολλο ΧΧΧΧ"];
+                    SPListItem oSPListItem = protokolo.GetItemById(listItems[0].ID);
+                    oSPListItem["status"] = "Επεξεργασία πρός Ακύρωση";
+                    SPListItemCollection additionallistItems = GetListItemCollection(properties, "ΛΙΣΤΑ", "KodikosAitimatos", "Text", mycode);
+
+
+                    try
+                    {
+                        oSPListItem.Update();
+
+                        #region init
+                        string fcontent = "";
+                        string dirname = action + mycode;
+                        string fname = "";
+                        string flocation = "c:\\temp\\exporttemp\\";
+                        string flocationzip = "c:\\temp\\export\\";
+                        #endregion
+
+                        try
+                        {
+                            Directory.CreateDirectory(flocation + dirname);
+                        }
+                        catch (Exception x) { Log(mycode, "Error", properties, "At directory : " + x.Message); }
+
+                        #region update additional items
+                        int i = 0;
+                        foreach (SPListItem additionalitm in additionallistItems)
+                        {
+                            if (!IsNull(additionalitm["Status Υποβολής"]).Equals("ΑΚΥΡΩΜΕΝΟ"))
+                            {
+                                fcontent = "";
+                                i++;
+
+                                additionalitm["sent2TEE"] = "cancelled";
+                                additionalitm["Ημερομηνία Αποστολής Εγκρίσεως ΧΧΧΧ/ΧΧΧΧ"] = null;
+
+                                additionalitm.Update();
+
+                                fname = getfname(properties, additionalitm);
+
+                                fcontent = CreateLine(properties, additionalitm);
+
+                                string[] checkfcontent = fcontent.Split(';');
+
+                                if (checkfcontent.Length != 29)
+                                {
+                                    oSPListItem["status"] = "τα πεδία (" + checkfcontent.Length + ") είναι λάθος";
+                                    oSPListItem["Λεπτομέρειες Απόρριψης"] = fcontent;
+                                    oSPListItem.Update();
+                                    rollback(properties, "KodikosAitimatos", mycode);
+                                    break;
+                                }
+
+                                oSPListItem["status"] = "τα πεδία στην γραμμή " + i + " είναι :" + (checkfcontent.Length - 1).ToString();
+                                oSPListItem.Update();
+
+                                // save the attachments of each item
+                                #region att
+                                foreach (String attachmentname in additionalitm.Attachments)
+                                {
+                                    String attachmentAbsoluteURL =
+                                    additionalitm.Attachments.UrlPrefix // gets the containing directory URL
+                                    + attachmentname;
+
+                                    // To get the SPSile reference to the attachment just use this code
+                                    SPFile attachmentFile = additionalitm.Web.GetFile(attachmentAbsoluteURL);
+
+                                    // To read the file content simply use this code
+                                    Stream stream = attachmentFile.OpenBinaryStream();
+                                    try
+                                    {
+                                        //using (var fileStream = File.Create(flocation + dirname + "\\" + attachmentname))
+                                        using (var fileStream = File.Create(flocation + dirname + "\\" + string.Format("{0}-{1}", additionalitm.ID, attachmentname))) //FYI: issue 260
+                                        {
+                                            stream.Seek(0, SeekOrigin.Begin);
+                                            stream.CopyTo(fileStream);
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Log(mycode, "Error", properties, "Error στο attachemnt (" + attachmentname + ") :" + ex.ToString());
+                                    }
+
+
+                                }
+                                #endregion
+
+                                // Write the results to the file.
+                                write2file(properties, mycode, flocation, dirname, fname, fcontent);
+
+                            }
+                        }
+                        oSPListItem["childNo"] = i;
+                        oSPListItem.Update();
+
+                        #endregion
+
+                        #region create zip
+                        Thread thread = new Thread(delegate()
+                        {
+                            // Code here.
+                            Thread.Sleep(10000);
+                            try
+                            {
+                                #region add csv to protokolo
+                                FileStream fStreamcsv1 = File.OpenRead(flocation + dirname + "\\" + fname);
+                                string fileNamecsv1 = fStreamcsv1.Name.Substring(3);
+                                byte[] contentscsv1 = new byte[fStreamcsv1.Length];
+                                fStreamcsv1.Read(contentscsv1, 0, (int)fStreamcsv1.Length);
+                                fStreamcsv1.Close();
+
+                                oSPListItem.Attachments.Add("c" + fname, contentscsv1);
+                                oSPListItem["status"] = "csv Αρχείο Ακύρωσης αποθηκεύτηκε!";
+                                oSPListItem.Update();
+                                #endregion
+
+                                if (File.Exists(flocationzip + dirname + ".zip"))
+                                {
+                                    File.Delete(flocationzip + dirname + ".zip");
+                                }
+                                ZipFile.CreateFromDirectory(flocation + dirname, flocationzip + dirname + ".zip", CompressionLevel.Fastest, true);
+                                Thread.Sleep(10000);
+                                System.IO.DirectoryInfo downloadedMessageInfo = new DirectoryInfo(flocation + dirname);
+
+                                foreach (FileInfo file in downloadedMessageInfo.GetFiles())
+                                {
+                                    file.Delete();
+                                }
+                                foreach (DirectoryInfo dir in downloadedMessageInfo.GetDirectories())
+                                {
+                                    dir.Delete(true);
+                                }
+
+                                downloadedMessageInfo.Delete(true);
+
+
+                                #region update protokolo zip
+                                FileStream fStream = File.OpenRead(flocationzip + dirname + ".zip");
+                                string fileName = fStream.Name.Substring(3);
+                                byte[] contents = new byte[fStream.Length];
+                                fStream.Read(contents, 0, (int)fStream.Length);
+                                fStream.Close();
+                                oSPListItem.Attachments.Add(dirname + ".zip", contents);
+                                oSPListItem["status"] = "zip Αρχείο Ακύρωσης αποθηκεύτηκε!";
+                                oSPListItem.Update();
+                                #endregion
+                            }
+                            catch (Exception ex)
+                            {
+                                // log errors
+                                Log(mycode, "Error", properties, ex.ToString());
+                            }
+                        });
+                        thread.IsBackground = true;
+                        thread.Start();
+                        #endregion
+                    }
+                    catch (Exception ex)
+                    {
+                        Log(mycode, "Info", properties, "Additional protocol cancelation prevented :" + ex.ToString());
+                    }
+                    //System.Threading.Thread.Sleep(2000);
+                } //end if item exist at protocol
+
+            }//end try
+            catch (Exception ex)
+            {
+                Log(mycode, "Error", properties, ex.ToString());
+            }
+
+
+
+        }//end my process item
+
+        void processLP(string mycode, SPItemEventProperties properties, SPListItem item, string action)
+        {
+
+            try
+            {
+
+                SPListItemCollection listItems = GetListItemCollection(properties, "Πρωτόκολλο ΧΧΧΧ", "Title", "Text", mycode);
+
+                if (listItems.Count == 0)
+                {
+                    SPList protokolo = properties.Web.Lists["Πρωτόκολλο ΧΧΧΧ"];
+                    SPListItem oSPListItem = protokolo.Items.Add();
+                    oSPListItem["Title"] = mycode;
+                    oSPListItem.Update();
+
+
+
+                    string katastima = "";
+                    katastima = IsNull(item["Κωδικός Καταστήματος-Δ/νσης (ΛΣ)"]);
+                    //Log(mycode, "Info", properties, "katastima:" + katastima);
+
+
+                    //oSPListItem["pnpdemand"] = "\"" + properties.WebUrl + "/" + item.ParentList.RootFolder.Url.ToString() + "/" + katastima +
+                    //   "?FilterField1=fpKwdikosAitimatos&FilterValue1=" + mycode + "\"";
+                    //FYI: issue 247 (Replace katastima with AllItemsls.aspx)    
+                    oSPListItem["pnpdemand"] = "\"" + properties.WebUrl + "/" + item.ParentList.RootFolder.Url.ToString() + "/" + "AllItemsls.aspx" +
+                               "?FilterField1=fpKwdikosAitimatos&FilterValue1=" + mycode + "\"";
+
+                    oSPListItem["status"] = "Λοιπά Επεξεργασία πρός Αποστολή";
+                    oSPListItem["cat"] = "other";
+
+                    SPListItemCollection additionallistItems = GetListItemCollection(properties, "ΛΙΣΤΑ", "fpKwdikosAitimatos", "Text", mycode);  //properties.List.GetItems(additionalqry);
+
+                    try
+                    {
+                        oSPListItem.Update();
+
+
+                        #region init
+                        string fcontent = "";
+                        string dirname = action + mycode;
+                        string fname = "";
+                        string flocation = "c:\\temp\\exporttemp\\";
+                        string flocationzip = "c:\\temp\\export\\";
+                        #endregion
+
+                        try
+                        {
+                            Directory.CreateDirectory(flocation + dirname);
+                        }
+                        catch (Exception x) { Log(mycode, "Error", properties, "At directory : " + x.Message); }
+
+                        try
+                        {
+                            #region update additional items
+                            int i = 0;
+                            foreach (SPListItem additionalitm in additionallistItems)
+                            {
+                                string statusypobolis = IsNull(additionalitm["Status Υποβολής (ΛΣ)"]);
+                                string statusMD = IsNull(additionalitm["Status Μονάδας Διαχείρισης (ΛΣ)"]);
+                                string statusDPXP = IsNull(additionalitm["Status ΔΠΧΠ (ΛΣ)"]);
+                                Log(mycode, "Info", properties, "statusypobolis:" + statusypobolis);
+                                Log(mycode, "Info", properties, "statusMD:" + statusMD);
+                                Log(mycode, "Info", properties, "statusDPXP:" + statusDPXP);
+
+
+                                if (!statusypobolis.Equals("ΑΚΥΡΩΜΕΝΟ"))
+                                {
+                                    if (statusypobolis.Equals("ΠΡΟΣ ΑΞΙΟΛΟΓΗΣΗ"))
+                                    {
+                                        if (statusMD.Equals("ΕΛΕΓΜΕΝΟ ΠΡΟΣ ΧΧΧΧ"))
+                                        {
+                                            if (statusDPXP.Equals("ΧΧΧΧ ΥΠΟ ΕΞΕΤΑΣΗ"))
+                                            {
+                                                i++;
+
+                                                fcontent = "";
+
+                                                additionalitm["sent2TEE"] = "true";
+                                                try
+                                                {
+                                                    //FYI: issue 244
+                                                    if (additionalitm["Ημερομηνία αποστολής για τη λήψη έγκρισης (ΛΣ)"] == null)
+                                                        additionalitm["Ημερομηνία αποστολής για τη λήψη έγκρισης (ΛΣ)"] = DateTime.Now;
+
+                                                    additionalitm.Update();
+                                                }
+                                                catch (Exception ex)
+                                                {
+                                                    Log(mycode, "Error", properties, "additionalitm could not updated :" + ex.ToString());
+                                                }
+                                                try
+                                                {
+                                                    fname = getfnameLP(properties, additionalitm);
+                                                    fcontent = createLineLP(properties, additionalitm);
+                                                }
+                                                catch (Exception ex)
+                                                {
+                                                    Log(mycode, "Error", properties, "fname fontent unsuccessfull :" + ex.ToString());
+                                                }
+                                                string[] checkfcontent = fcontent.Split(';');
+
+                                                if (checkfcontent.Length != 29)
+                                                {
+                                                    try
+                                                    {
+                                                        oSPListItem["status"] = "τα πεδία (" + checkfcontent.Length + ") είναι λάθος";
+                                                        oSPListItem["Λεπτομέρειες Απόρριψης"] = fcontent;
+                                                        oSPListItem.Update();
+                                                        SPListItemCollection rollbackitms = GetListItemCollection(properties, "ΛΙΣΤΑ", "fpKwdikosAitimatos", "Text", mycode);
+                                                        foreach (SPListItem roll in rollbackitms)
+                                                        {
+                                                            roll["sent2TEE"] = "error";
+                                                            roll.Update();
+                                                        }
+                                                        break;
+                                                    }
+                                                    catch (Exception ex)
+                                                    {
+                                                        Log(mycode, "Error", properties, "roll back unsuccessfull:" + ex.ToString());
+                                                    }
+                                                }
+
+
+                                                oSPListItem["status"] = "τα πεδία στην γραμμή " + i + " είναι :" + (checkfcontent.Length - 1).ToString();
+                                                oSPListItem.Update();
+
+
+
+                                                // save the attachments of each item
+                                                #region att
+                                                foreach (String attachmentname in additionalitm.Attachments)
+                                                {
+                                                    String attachmentAbsoluteURL =
+                                                    additionalitm.Attachments.UrlPrefix // gets the containing directory URL
+                                                    + attachmentname;
+
+                                                    // To get the SPSile reference to the attachment just use this code
+                                                    SPFile attachmentFile = additionalitm.Web.GetFile(attachmentAbsoluteURL);
+
+                                                    // To read the file content simply use this code
+                                                    Stream stream = attachmentFile.OpenBinaryStream();
+                                                    try
+                                                    {
+                                                        //Log("Important", properties, "attachmentname:" + attachmentname);
+                                                        //Log("Important", properties, "attachmentname:" +  HttpUtility.UrlEncode(attachmentname));
+
+                                                        //using (var fileStream = File.Create(flocation + dirname + "\\" + attachmentname))
+                                                        using (var fileStream = File.Create(flocation + dirname + "\\" + string.Format("{0}-{1}", additionalitm.ID, attachmentname))) //FYI: issue 260
+                                                        {
+                                                            stream.Seek(0, SeekOrigin.Begin);
+                                                            stream.CopyTo(fileStream);
+                                                        }
+                                                    }
+                                                    catch (Exception ex)
+                                                    {
+                                                        Log(mycode, "Error", properties, "Error στο attachemnt (" + attachmentname + ") :" + ex.ToString());
+                                                    }
+
+
+                                                }
+                                                #endregion
+
+                                                // Write the results to the file.
+                                                write2file(properties, mycode, flocation, dirname, fname, fcontent);
+                                            }
+                                            else
+                                            {
+                                                item["Λεπτομέρειες Απόρριψης"] = "Status ΔΠΧΠ (ΛΣ) (" + IsNull(additionalitm["Status ΔΠΧΠ (ΛΣ)"]) + ") δεν είναι ΧΧΧΧ ΥΠΟ ΕΞΕΤΑΣΗ";
+                                                oSPListItem.Update();
+                                            }
+
+                                        }
+                                        else
+                                        {
+                                            item["Λεπτομέρειες Απόρριψης"] = "Status Μονάδας Διαχείρισης (ΛΣ) (" + IsNull(additionalitm["Status Μονάδας Διαχείρισης (ΛΣ)"]) + ") δεν είναι ΕΛΕΓΜΕΝΟ ΠΡΟΣ ΧΧΧΧ";
+
+                                            oSPListItem.Update();
+                                        }
+                                    }
+                                    else
+                                    {
+                                        item["Λεπτομέρειες Απόρριψης"] = "Status Υποβολής (ΛΣ) (" + IsNull(additionalitm["Status Υποβολής (ΛΣ)"]) + ") δεν είναι ΠΡΟΣ ΑΞΙΟΛΟΓΗΣΗ";
+
+                                        oSPListItem.Update();
+                                    }
+                                }
+                            }
+                            oSPListItem["childNo"] = i;
+                            oSPListItem.Update();
+                            #endregion
+                        }
+                        catch (Exception ex)
+                        {
+                            Log(mycode, "Error", properties, "Additional items prevented:" + ex.ToString());
+                        }
+
+                        #region create zip
+
+                        Thread thread = new Thread(delegate()
+                        {
+                            // Code here.
+                            Thread.Sleep(10000);
+                            try
+                            {
+                                #region add csv to protokolo
+                                FileStream fStreamcsv1 = File.OpenRead(flocation + dirname + "\\" + fname);
+                                string fileNamecsv1 = fStreamcsv1.Name.Substring(3);
+                                byte[] contentscsv1 = new byte[fStreamcsv1.Length];
+                                fStreamcsv1.Read(contentscsv1, 0, (int)fStreamcsv1.Length);
+                                fStreamcsv1.Close();
+
+                                oSPListItem.Attachments.Add(fname, contentscsv1);
+                                oSPListItem["status"] = "csv Αρχείο Αποστολής αποθηκεύτηκε!";
+                                oSPListItem.Update();
+                                #endregion
+
+                                if (File.Exists(flocationzip + dirname + ".zip"))
+                                {
+                                    File.Delete(flocationzip + dirname + ".zip");
+                                }
+                                ZipFile.CreateFromDirectory(flocation + dirname, flocationzip + dirname + ".zip", CompressionLevel.Fastest, true);
+                                Thread.Sleep(10000);
+                                System.IO.DirectoryInfo downloadedMessageInfo = new DirectoryInfo(flocation + dirname);
+
+                                foreach (FileInfo file in downloadedMessageInfo.GetFiles())
+                                {
+                                    file.Delete();
+                                }
+                                foreach (DirectoryInfo dir in downloadedMessageInfo.GetDirectories())
+                                {
+                                    dir.Delete(true);
+                                }
+
+                                downloadedMessageInfo.Delete(true);
+
+                                #region update protokolo zip file
+                                FileStream fStream = File.OpenRead(flocationzip + dirname + ".zip");
+                                string fileName = fStream.Name.Substring(3);
+                                byte[] contents = new byte[fStream.Length];
+                                fStream.Read(contents, 0, (int)fStream.Length);
+                                fStream.Close();
+
+                                oSPListItem.Attachments.Add(dirname + ".zip", contents);
+                                oSPListItem["status"] = "zip Αρχείο Αποστολής αποθηκεύτηκε!";
+                                oSPListItem.Update();
+
+                                #endregion
+                            }
+                            catch (Exception ex)
+                            {
+                                // log errors
+                                Log(mycode, "Error", properties, "Error on thread:" + ex.ToString());
+                            }
+                        });
+                        thread.IsBackground = true;
+                        thread.Start();
+
+                        #endregion
+                    }
+                    catch (Exception ex)
+                    {
+                        Log(mycode, "Error2", properties, ex.ToString());
+                    }
+                    //System.Threading.Thread.Sleep(2000);
+                } //end if item exist at protocol
+
+
+            }//end if kodikos == null
+
+            //end try
+            catch (Exception ex)
+            {
+                Log(mycode, "Error", properties, ex.ToString());
+            }
+
+
+
+        }//end my process item
+
+        void cancelLP(string mycode, SPItemEventProperties properties, string action)
+        {
+            try
+            {
+                SPListItemCollection listItems = GetListItemCollection(properties, "Πρωτόκολλο ΧΧΧΧ", "Title", "Text", mycode);
+                if (listItems.Count == 1)
+                {
+                    SPList protokolo = properties.Web.Lists["Πρωτόκολλο ΧΧΧΧ"];
+                    SPListItem oSPListItem = protokolo.GetItemById(listItems[0].ID);
+                    oSPListItem["status"] = "Επεξεργασία πρός Ακύρωση";
+                    SPListItemCollection additionallistItems = GetListItemCollection(properties, "ΛΙΣΤΑ", "fpKwdikosAitimatos", "Text", mycode);
+
+                    try
+                    {
+                        oSPListItem.Update();
+                        #region init
+                        string fcontent = "";
+                        string dirname = action + mycode;
+                        string fname = "";
+                        string flocation = "c:\\temp\\exporttemp\\";
+                        string flocationzip = "c:\\temp\\export\\";
+                        #endregion
+                        try
+                        {
+                            Directory.CreateDirectory(flocation + dirname);
+                        }
+                        catch (Exception x) { Log(mycode, "Error", properties, "At directory : " + x.Message); }
+
+                        int i = 0;
+                        foreach (SPListItem additionalitm in additionallistItems)
+                        {
+                            if (!IsNull(additionalitm["Status Υποβολής (ΛΣ)"], "").Equals("ΑΚΥΡΩΜΕΝΟ"))
+                            {
+                                i++;
+                                fcontent = "";
+
+                                additionalitm["sent2TEE"] = "cancelled";
+                                additionalitm.Update();
+
+                                fname = getfnameLP(properties, additionalitm);
+                                fcontent = createLineLP(properties, additionalitm);
+
+                                string[] checkfcontent = fcontent.Split(';');
+
+                                if (checkfcontent.Length != 29)
+                                {
+                                    oSPListItem["status"] = "τα πεδία (" + checkfcontent.Length + ") είναι λάθος";
+                                    oSPListItem["Λεπτομέρειες Απόρριψης"] = fcontent;
+                                    oSPListItem.Update();
+                                    rollback(properties, "fpKwdikosAitimatos", mycode);
+                                    break;
+                                }
+
+                                // save the attachments of each item
+                                #region att
+                                foreach (String attachmentname in additionalitm.Attachments)
+                                {
+                                    String attachmentAbsoluteURL =
+                                    additionalitm.Attachments.UrlPrefix // gets the containing directory URL
+                                    + attachmentname;
+
+                                    // To get the SPSile reference to the attachment just use this code
+                                    SPFile attachmentFile = additionalitm.Web.GetFile(attachmentAbsoluteURL);
+
+                                    // To read the file content simply use this code
+                                    Stream stream = attachmentFile.OpenBinaryStream();
+                                    try
+                                    {
+                                        //FYI: issue 260
+                                        //using (var fileStream = File.Create(flocation + dirname + "\\" + attachmentname))
+                                        using (var fileStream = File.Create(flocation + dirname + "\\" + string.Format("{0}-{1}", additionalitm.ID, attachmentname)))
+                                        {
+                                            stream.Seek(0, SeekOrigin.Begin);
+                                            stream.CopyTo(fileStream);
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Log(mycode, "Info", properties, "Error στο attachemnt (" + attachmentname + ") :" + ex.ToString());
+                                    }
+
+
+                                }
+                                #endregion
+
+                                // Write the results to the file.
+                                write2file(properties, mycode, flocation, dirname, fname, fcontent);
+
+                            }
+                        }
+                        oSPListItem["childNo"] = i;
+                        #region create zip
+                        Thread thread = new Thread(delegate()
+                        {
+                            // Code here.
+                            Thread.Sleep(10000);
+                            try
+                            {
+                                if (File.Exists(flocationzip + dirname + ".zip"))
+                                {
+                                    File.Delete(flocationzip + dirname + ".zip");
+                                }
+                                ZipFile.CreateFromDirectory(flocation + dirname, flocationzip + dirname + ".zip", CompressionLevel.Fastest, true);
+                                Thread.Sleep(10000);
+                                System.IO.DirectoryInfo downloadedMessageInfo = new DirectoryInfo(flocation + dirname);
+
+                                foreach (FileInfo file in downloadedMessageInfo.GetFiles())
+                                {
+                                    file.Delete();
+                                }
+                                foreach (DirectoryInfo dir in downloadedMessageInfo.GetDirectories())
+                                {
+                                    dir.Delete(true);
+                                }
+
+                                downloadedMessageInfo.Delete(true);
+
+                                FileStream fStream = File.OpenRead(flocationzip + dirname + ".zip");
+                                string fileName = fStream.Name.Substring(3);
+                                byte[] contents = new byte[fStream.Length];
+                                fStream.Read(contents, 0, (int)fStream.Length);
+                                fStream.Close();
+
+
+                                #region update protokolo
+                                oSPListItem.Attachments.Add(dirname + ".zip", contents);
+                                oSPListItem["status"] = "zip Αρχείο Ακύρωσης αποθηκεύτηκε!";
+                                oSPListItem.Update();
+                                #endregion
+                            }
+                            catch (Exception ex)
+                            {
+                                // log errors
+                                Log(mycode, "Error", properties, ex.ToString());
+                            }
+                        });
+                        thread.IsBackground = true;
+                        thread.Start();
+                        #endregion
+                    }
+                    catch
+                    {
+                        Log(mycode, "Info", properties, "Additional protocol cancelation prevented");
+                    }
+                    //System.Threading.Thread.Sleep(2000);
+                } //end if item exist at protocol
+                else
+                {
+                    Log(mycode, "Warning", properties, "item (" + mycode + ") δεν υπάρχει στο πρωτόκολλο ώστε να μπορεί να ακυρωθεί");
+                }
+            }//end try
+            catch (Exception ex)
+            {
+                Log(mycode, "Error", properties, ex.ToString());
+            }
+
+        }//end my process item
+
+        private SPListItemCollection GetListItemCollection(SPItemEventProperties properties, string listName, string queryField, string queryFieldDataType, string queryValue)
+        {
+            SPList list = properties.Web.Lists[listName];
+            SPQuery query = new SPQuery();
+            query.ViewXml =
+                "<View Scope=\"RecursiveAll\"> " +
+                "<Query>" +
+                "<Where>" +
+                            "<Eq>" +
+                            "<FieldRef Name='" + queryField + "' />" +
+                            "<Value Type='" + queryFieldDataType + "'>" + queryValue + "</Value>" +
+                            "</Eq>" +
+                "</Where>" +
+                "</Query>" +
+                "</View>";
+
+            SPListItemCollection items = list.GetItems(query);
+
+            return items;
+        }
+
+        private string NormalizeAFM(string val)
+        {
+            if (val != "999999999")
+            { val = "EL" + val; }
+
+            return val;
+        }
+
+        private string NormalizeValue(object val)
+        {
+            string res = "";
+            if (val == null || val.ToString() == "")
+            { res = "missing"; }
+            else
+            { res = val.ToString().Replace('\n', ' '); }
+
+            return res;
+        }
+
+        private string ReplaceSemicolon(object val)
+        {
+            string res = "";
+            if (val == null || val.ToString() == "")
+            { res = ""; }
+            else
+            { res = val.ToString().Replace(';', '_'); }
+
+            return res;
+        }
+
+        private string IsNull(object val) { string defaultmissingvalue = ""; string defaultformatdate = ""; return IsNull(val, defaultmissingvalue, defaultformatdate); }
+        private string IsNull(object val, string missingvalue) { string defaultformatdate = ""; return IsNull(val, missingvalue, defaultformatdate); }
+        private string IsNull(object val, string missingvalue, string formatdate)
+        {
+            if (val == null)
+            {
+                return missingvalue;
+            }
+            else
+            {
+                if (formatdate.Equals(""))
+                {
+                    if (val.ToString().IndexOf("#") > 0)
+                    {
+                        return val.ToString().Substring(val.ToString().IndexOf("#") + 1, val.ToString().Length - 1 - val.ToString().IndexOf("#"));
+                    }
+                    else
+                    {
+                        return val.ToString();
+                    }
+                }
+                else
+                {
+                    return DateTime.Parse(val.ToString()).ToString(formatdate);
+                }
+            }
+
+
+        }
+        private object IsDecimalNull(object val, object missingvalue)
+        {
+            if (val == null)
+            {
+                return missingvalue;
+            }
+            else
+            {
+                return val;
+            }
+        }
+        private string createLineLP(SPItemEventProperties properties, SPListItem additionalitm)
+        {
+            string mycode = "";
+            string fcontent = "";
+            try
+            {
+
+                #region save details one by one to file
+
+                mycode = IsNull(additionalitm["Κωδικός Αιτήματος πελάτη (ΛΣ)"], "");
+                Log(mycode, "Info", properties, "******************** start Λοιπά *******************************************");
+
+                //DateOfRequestToCreditInstitution 00
+                fcontent = IsNull(additionalitm["Ημ/νία υποβολής αιτήματος από τον Πελάτη (ΛΣ)"], "1900-01-01", "yyyy-MM-dd") + ";";
+                Log(mycode, "Info", properties, fcontent);
+                //CustomerVATNumber 01
+                fcontent += ReplaceSemicolon(NormalizeAFM(IsNull(additionalitm["ΑΦΜ Πελάτη (ΛΣ)"], "999999999"))) + ";";
+                Log(mycode, "Info", properties, fcontent);
+                //CustomerName 02
+                fcontent += ReplaceSemicolon(IsNull(additionalitm["Πελάτης-Εντολέας (ΛΣ)"], "Πελάτης")) + ";";
+                Log(mycode, "Info", properties, fcontent);
+                //CustomerCRMID 03
+                fcontent += ReplaceSemicolon(IsNull(additionalitm["CDI (ΛΣ)"], "0000000000")) + ";";
+                Log(mycode, "Info", properties, fcontent);
+                //BeneficiaryName 04
+                fcontent += ReplaceSemicolon(IsNull(additionalitm["Δικαιούχος (ΛΣ)"], "Άγνωστος")) + ";";
+                Log(mycode, "Info", properties, fcontent);
+                //CountryCode 05+06
+                #region get country ISO
+                SPListItemCollection countryItms = GetListItemCollection(properties, "countries", "Title", "Text", IsNull(additionalitm["Χώρα προορισμού κεφαλαίων (ΛΣ)"], "ΓΕΩΡΓΙΑ"));
+                if (countryItms.Count > 0)
+                {
+                    SPListItem ctr = countryItms[0];
+                    if (ctr["ISO"] != null)
+                    {
+                        fcontent += ctr["ISO"].ToString() + ";" + ctr["Title"].ToString() + ";";
+                    }
+                    else
+                    {
+                        fcontent += "Χώρα Προορισμού Κεφαλαίων missing;";
+                    }
+                }
+                else
+                {
+                    fcontent += "Χώρα Προορισμού Κεφαλαίων missing;";
+                }
+                #endregion
+                Log(mycode, "Info", properties, fcontent);
+                //TransactionCurrencyCode 07
+                fcontent += IsNull(additionalitm["Νόμισμα Τιμολογίου/ Παραστατικού (ΛΣ)"], "EUR") + ";";
+                Log(mycode, "Info", properties, fcontent);
+                //TransactionTotalAmount 08 
+                CultureInfo culture = new CultureInfo("en-US");
+                string dummy = String.Format(culture, "{0:0.00}", IsDecimalNull(additionalitm["Ποσό Παραστατικού πελάτη (ΛΣ)"], "0")) + ";";
+                fcontent += dummy;
+                Log(mycode, "Info", properties, fcontent);
+                //TransactionTotalAmountInEuro 09
+                string dummy2 = String.Format(culture, "{0:0.00}", IsDecimalNull(additionalitm["Ισότιμο σε EUR (ΛΣ)"], "0")) + ";";
+                fcontent += dummy2;
+                Log(mycode, "Info", properties, fcontent);
+                //TransactionTypeCode 10
+                //TransactionTypeDescription 11
+                string type = "";
+                type = IsNull(additionalitm["Είδος Συναλλαγής (ΛΣ)"]);
+                #region ειδος συναλλαγής 10 + 11
+                SPListItemCollection listEidosSynallagisItms = GetListItemCollection(properties, "listEidosSynallagis", "Title", "Text", type);
+                if (listEidosSynallagisItms.Count > 0)
+                {
+                    SPListItem typeitm = listEidosSynallagisItms[0];
+                    if (typeitm["transactionTypeCode"] != null)
+                    {
+                        fcontent += typeitm["transactionTypeCode"].ToString() + ";" + typeitm["Title"].ToString() + ";";
+                    }
+                    else
+                    {
+                        fcontent += "99;Λοιπές Μη Επιτρεπόμενες Συναλλαγές;";
+                    }
+                }
+                else
+                {
+                    fcontent += "99;Λοιπές Μη Επιτρεπόμενες Συναλλαγές;";
+                }
+                #endregion
+                Log(mycode, "Info", properties, fcontent);
+                //ProductCategoryCode 12
+                //ProductCategoryDescription 13
+                string cat = "";
+                cat = IsNull(additionalitm["Κατηγορία προϊόντος (ΛΣ)"]);
+                #region ProductCategoryCode 12 + 13
+                SPListItemCollection productcategoryItms = GetListItemCollection(properties, "productcategory", "Title", "Text", cat);
+
+                if (productcategoryItms.Count > 0)
+                {
+                    SPListItem product = productcategoryItms[0];
+                    if (product["productCategoryCode"] != null)
+                    {
+                        fcontent += product["productCategoryCode"].ToString() + ";" + product["Title"].ToString() + ";";
+                    }
+                    else
+                    {
+                        fcontent += "99;Π3-VII. Λοιπά;";
+                    }
+                }
+                else
+                {
+                    fcontent += "99;Π3-VII. Λοιπά;";
+                }
+                #endregion
+                Log(mycode, "Info", properties, fcontent);
+                //TransactionReasoning 14
+                fcontent += ReplaceSemicolon(IsNull(additionalitm["Αιτιολογία συναλλαγής (ΛΣ)"], ""));
+                fcontent += " - " + ReplaceSemicolon(IsNull(additionalitm["Είδος προϊόντος (ΛΣ)"], "")) + ";";
+                Log(mycode, "Info", properties, fcontent);
+                //RequestReasoningCode 15
+                //RequestReasoningDescription 16
+                string req = "";
+                req = IsNull(additionalitm["Αιτιολογία Υποβολής Αιτήματος προς την ΧΧΧΧ (ΛΣ)"]);
+                #region 15 + 16
+
+                SPListItemCollection requestReasoningItms = GetListItemCollection(properties, "requestReasoning", "Title", "Text", req);
+                if (requestReasoningItms.Count > 0)
+                {
+                    SPListItem requestReasoningitm = requestReasoningItms[0];
+                    if (requestReasoningitm["requestReasoningCode"] != null)
+                    {
+                        fcontent += requestReasoningitm["requestReasoningCode"].ToString() + ";" + requestReasoningitm["Title"].ToString() + ";";
+                    }
+                    else
+                    {
+                        fcontent += "99;Λοιπές περιπτώσεις;";
+                    }
+                }
+                else
+                {
+                    fcontent += "99;Λοιπές περιπτώσεις;";
+                }
+                Log(mycode, "Info", properties, fcontent);
+                #endregion
+
+                // ProposalToBTACCode 17 Θετική Εισήγηση προς ΧΧΧΧ
+                // ProposalToBTACDescription 18 Σχόλιο Εισήγησης
+                Log(mycode, "Info", properties, "Εισήγηση Μονάδας Διαχείρισης (ΛΣ): " + IsNull(additionalitm["Εισήγηση Μονάδας Διαχείρισης (ΛΣ)"], ""));
+                if (IsNull(additionalitm["Εισήγηση Μονάδας Διαχείρισης (ΛΣ)"], "ΘΕΤΙΚΗ").Equals("ΘΕΤΙΚΗ"))
+                {
+                    fcontent += "01;Θετική εισήγηση πιστωτικού ιδρύματος;";
+                }
+                else
+                {
+                    fcontent += "02;Αρνητική εισήγηση πιστωτικού ιδρύματος;";
+                }
+                Log(mycode, "Info", properties, fcontent);
+                // ProposalToBTACReasoning 19 Αιτιολογία Υποβολής Αιτήματος προς την ΧΧΧΧ
+                #region ProposalToBTACReasoning 19
+                string proposalToBTACReasoning = "";
+                proposalToBTACReasoning += IsNull(additionalitm["Εισήγηση - Σχόλια Καταστήματος (ΛΣ)"])
+                    + " " + IsNull(additionalitm["Εισηγητής Α (ΛΣ)"])
+                    + " " + IsNull(additionalitm["Εισηγητής Β (ΛΣ)"])
+                    + " " + IsNull(additionalitm["Τηλέφωνο επικοινωνίας (ΛΣ)"]);
+                if (proposalToBTACReasoning.Trim() == "")
+                { fcontent += "...;"; }
+                else
+                { fcontent += ReplaceSemicolon(proposalToBTACReasoning) + ";"; }
+                #endregion
+                Log(mycode, "Info", properties, fcontent);
+                //InvoiceTypeCode 000 
+                //InvoiceTypeDescription 001
+                //InvoiceNo 002
+                //InvoiceIssuanceDate 003
+                //InvoiceExpirationDate 004
+                fcontent += "02;proforma;0;1900-01-01;1900-01-01;";
+                Log(mycode, "Info", properties, fcontent);
+                //InvoiceCurrencyCode 005
+                fcontent += IsNull(additionalitm["Νόμισμα Τιμολογίου/ Παραστατικού (ΛΣ)"], "EUR") + ";";
+                Log(mycode, "Info", properties, fcontent);
+                //InvoiceAmount 006
+                //InvoiceAmountInEuro 007
+
+                dummy = String.Format(culture, "{0:0.00}", IsDecimalNull(additionalitm["Ποσό Παραστατικού πελάτη (ΛΣ)"], "0")) + ";";
+                fcontent += dummy;
+                Log(mycode, "Info", properties, fcontent);
+                dummy2 = String.Format(culture, "{0:0.00}", IsDecimalNull(additionalitm["Ισότιμο σε EUR (ΛΣ)"], "0")) + ";";
+                fcontent += dummy2;
+
+
+                #endregion
+                Log(mycode, "Info", properties, fcontent);
+                Log(mycode, "Info", properties, "******************** end Λοιπά *******************************************");
+
+                return fcontent;
+            }
+
+            catch (Exception ex)
+            {
+                Log(mycode, "Error", properties, "createLineLP:" + ex.ToString());
+                return fcontent;
+            }
+        }
+        private string CreateLine(SPItemEventProperties properties, SPListItem additionalitm)
+        {
+            string mycode = "";
+            string fcontent = "";
+            try
+            {
+
+                #region save details one by one to file
+
+                mycode = IsNull(additionalitm["Κωδικός Αιτήματος"], "");
+
+                //DateOfRequestToCreditInstitution 00
+                fcontent = IsNull(additionalitm["Ημερομηνία υποβολής αιτήματος από τον Πελάτη"], "1900-01-01", "yyyy-MM-dd") + ";";
+                //CustomerVATNumber 01
+                fcontent += ReplaceSemicolon(NormalizeAFM(IsNull(additionalitm["ΑΦΜ"], "999999999"))) + ";";
+                //CustomerName 02
+                fcontent += ReplaceSemicolon(IsNull(additionalitm["Πελάτης/Εντολέας"], "Πελάτης")) + ";";
+                //CustomerCRMID 03
+                fcontent += ReplaceSemicolon(IsNull(additionalitm["CDI Πελάτη"], "0000000000")) + ";";
+                //BeneficiaryName 04
+                fcontent += ReplaceSemicolon(IsNull(additionalitm["Δικαιούχος Εντολής"], "Άγνωστος")) + ";";
+                //CountryCode 05+06
+                #region get country ISO
+                SPListItemCollection countryItms = GetListItemCollection(properties, "countries", "Title", "Text", IsNull(additionalitm["Χώρα Προορισμού Κεφαλαίων"], "ΓΕΩΡΓΙΑ")); //countries.GetItems(countryqry);
+                if (countryItms.Count > 0)
+                {
+                    SPListItem ctr = countryItms[0];
+                    fcontent += IsNull(ctr["ISO"]) + ";";
+                    fcontent += IsNull(ctr["Title"]) + ";";
+                }
+                else
+                {
+                    fcontent += "Χώρα Προορισμού Κεφαλαίων missing;;";
+                }
+                #endregion
+                //TransactionCurrencyCode 07
+                fcontent += IsNull(additionalitm["Νόμισμα"], "EUR") + ";";
+                //TransactionTotalAmount 08 
+                if (IsNull(additionalitm["Είδος Συναλλαγής"], "missing").Equals("ΑΛΛΟ"))
+                {
+                    fcontent += IsNull(additionalitm["Ποσό Παραστατικού"], "0") + ";";
+                }
+                else
+                {
+                    fcontent += IsNull(additionalitm["Συνολικό Ποσό"], "missing") + ";";
+                }
+                //TransactionTotalAmountInEuro 09
+                if (IsNull(additionalitm["Είδος Συναλλαγής"], "missing").Equals("ΑΛΛΟ"))
+                {
+                    fcontent += IsNull(additionalitm["Ισότιμο σε ΕΥΡΩ"], "0") + ";";
+                }
+                else
+                {
+                    fcontent += IsNull(additionalitm["Συνολικό Ποσό"], "missing") + ";";
+                }
+
+                // TO-DO
+                #region ειδος συναλλαγής
+
+                //TransactionTypeCode 10
+                //TransactionTypeDescription 11
+                #region get paymentterms
+                SPListItemCollection transactiontypeItms = GetListItemCollection(properties, "transactiontype", "Title", "Text", IsNull(additionalitm["Είδος Συναλλαγής"])); //transactiontype.GetItems(transactiontypeqry);
+                if (transactiontypeItms.Count > 0)
+                {
+                    SPListItem transaction = transactiontypeItms[0];
+                    //fcontent += "99;Λοιπές Μη Επιτρεπόμενες Συναλλαγές;";
+                    //fcontent += "01;Έμβασμα στο Εξωτερικό έναντι παραστατικών;";
+                    fcontent += IsNull(transaction["transactionTypeCode"], "missing") + ";";
+                    fcontent += IsNull(transaction["transactionTypeDescription"], "missing") + ";";
+                    //fcontent += transaction["transactionTypeCode"].ToString() + ";" + transaction["transactionTypeDescription"].ToString() + ";";
+
+                }
+                else
+                {
+                    fcontent += "99;Λοιπές Μη Επιτρεπόμενες Συναλλαγές;";
+                    //fcontent += "missing;missing;"; 
+                }
+                #endregion
+
+                #endregion
+
+                //ProductCategoryCode 12
+                //ProductCategoryDescription 13
+                #region get productcategory
+                SPListItemCollection productcategoryItms = GetListItemCollection(properties, "productcategory", "Title", "Text", IsNull(additionalitm["Κατηγορία Προϊόντος"]));
+                //productcategory.GetItems(productcategoryqry);
+                if (productcategoryItms.Count > 0)
+                {
+                    SPListItem product = productcategoryItms[0];
+                    fcontent += NormalizeValue(IsNull(product["productCategoryCode"], "99")) + ";";
+                    fcontent += NormalizeValue(IsNull(product["Title"], "Π3-VII. Λοιπά")) + ";";
+                }
+                else
+                {
+                    fcontent += "99;Π3-VII. Λοιπά;";
+                }
+                #endregion
+
+                //TransactionReasoning 14
+                fcontent += ReplaceSemicolon(NormalizeValue(IsNull(additionalitm["Αιτιολογία Συναλλαγής"], "Έμβασμα"))) + ";";
+
+                //RequestReasoningCode 15
+                //RequestReasoningDescription 16
+
+                #region get requestReasoning
+                SPListItemCollection requestReasoningItms = GetListItemCollection(properties, "requestReasoning", "Title", "Text", IsNull(additionalitm["Αιτιολογία Υποβολής Αιτήματος προς την ΧΧΧΧ"]));
+                //requestReasoning.GetItems(requestReasoningqry);
+                if (requestReasoningItms.Count > 0)
+                {
+                    SPListItem requestReasoningitm = requestReasoningItms[0];
+                    fcontent += IsNull(requestReasoningitm["requestReasoningCode"], "03") + ";";
+                    fcontent += IsNull(requestReasoningitm["Title"], "Ιστορικότητα") + ";";
+                }
+                else
+                {
+                    fcontent += "03;Ιστορικότητα;";
+                }
+                #endregion
+
+                // ProposalToBTACCode 17 Θετική Εισήγηση προς ΧΧΧΧ
+                // ProposalToBTACDescription 18  Σχόλιο Εισήγησης
+                // Log("Important", properties, "Θετική Εισήγηση προς ΧΧΧΧ:" + additionalitm["Θετική Εισήγηση προς ΧΧΧΧ"].ToString());
+                if (IsNull(additionalitm["Θετική Εισήγηση προς ΧΧΧΧ"], "True").Equals("True"))
+                {
+                    fcontent += "01;Θετική εισήγηση πιστωτικού ιδρύματος;";
+                }
+                else
+                {
+                    fcontent += "02;Αρνητική εισήγηση πιστωτικού ιδρύματος;";
+                }
+
+                // ProposalToBTACReasoning 19 Αιτιολογία Υποβολής Αιτήματος προς την ΧΧΧΧ
+                #region ProposalToBTACReasoning 19
+                string proposalToBTACReasoning = "";
+                proposalToBTACReasoning += IsNull(additionalitm["Σχόλιο Εισήγησης"])
+                    + " " + IsNull(additionalitm["Εισηγητής Α"])
+                    + " " + IsNull(additionalitm["Εισηγητής Β"])
+                    + " " + IsNull(additionalitm["Τηλέφωνο Επικοινωνίας"]);
+                if (proposalToBTACReasoning.Trim() == "")
+                { fcontent += "...;"; }
+                else
+                { fcontent += ReplaceSemicolon(proposalToBTACReasoning) + ";"; }
+                #endregion
+
+
+                //InvoiceTypeCode 000 
+                //InvoiceTypeDescription 001
+
+                if (IsNull(additionalitm["Είδος Παραστατικού"]).Equals("Τιμολόγιο"))
+                {
+                    fcontent += "01;Τιμολόγιο;";
+                }
+                else if (IsNull(additionalitm["Είδος Παραστατικού"]).Equals("Proforma"))
+                {
+                    fcontent += "02;proforma;";
+                }
+                else
+                {
+                    fcontent += "99;Άλλο;";
+                }
+
+                //Log(mycode,"Info",properties, "Είδος Παραστατικού:" + additionalitm["Είδος Παραστατικού"].ToString());
+
+                //InvoiceNo 002
+                fcontent += ReplaceSemicolon(IsNull(additionalitm["Αριθμός Παραστατικού"], "0")) + ";";
+
+                //InvoiceIssuanceDate 003
+                fcontent += IsNull(additionalitm["Ημερομηνία Παραστατικού"], "1900-01-01", "yyyy-MM-dd") + ";";
+
+                //InvoiceExpirationDate 004
+                fcontent += IsNull(additionalitm["Ημερομηνία Λήξης Τιμολογίου"], "1900-01-01", "yyyy-MM-dd") + ";";
+
+                //InvoiceCurrencyCode 005
+                fcontent += IsNull(additionalitm["Νόμισμα"], "EUR") + ";";
+
+                CultureInfo culture = new CultureInfo("en-US");
+                string dummy = String.Format(culture, "{0:0.00}", IsDecimalNull(additionalitm["Ποσό Παραστατικού"], 0)) + ";";
+                fcontent += dummy;
+                //decimal dummy = Convert.ToDecimal(additionalitm["Ποσό Παραστατικού"].ToString(), culture);
+                //Log(mycode,"Info",properties, "Ποσό Παραστατικού:" + dummy);
+                // get a temporary culture (clone) to modify
+                //var ci = CultureInfo.InvariantCulture.Clone() as CultureInfo;
+                //ci.NumberFormat.NumberDecimalSeparator = ",";
+                //decimal number = decimal.Parse(additionalitm["Ποσό Παραστατικού"].ToString(), ci); // 1.1
+                //InvoiceAmountInEuro 007
+                string dummy2 = String.Format(culture, "{0:0.00}", IsDecimalNull(additionalitm["Ισότιμο σε ΕΥΡΩ"], "0")) + ";";
+                fcontent += dummy2;
+
+
+                #endregion
+                return fcontent;
+            }
+
+            catch (Exception ex)
+            {
+                Log(mycode, "Error", properties, ex.ToString());
+                return fcontent;
+            }
+        }
+        private string getfnameLP(SPItemEventProperties properties, SPListItem additionalitm)
+        {
+            string mycode = "";
+            try
+            {
+                return IsNull(additionalitm["ΑΦΜ Πελάτη (ΛΣ)"], "") + ".csv";
+            }
+            catch (Exception ex)
+            {
+                Log(mycode, "Error", properties, ex.ToString());
+                return "failed";
+            }
+        }
+        private string getfname(SPItemEventProperties properties, SPListItem additionalitm)
+        {
+            string mycode = "";
+            try
+            {
+                return IsNull(additionalitm["ΑΦΜ"], "") + ".csv";
+            }
+            catch (Exception ex)
+            {
+                Log(mycode, "Error", properties, ex.ToString());
+                return "failed";
+            }
+        }
+        private bool rollback(SPItemEventProperties properties, string tocheckid, string tmpcode)
+        {
+            try
+            {
+                SPListItemCollection rollbackitms = GetListItemCollection(properties, "ΛΙΣΤΑ", tocheckid, "Text", tmpcode);
+                foreach (SPListItem roll in rollbackitms)
+                {
+                    roll["sent2TEE"] = "error";
+                    roll.Update();
+                }
+                return true;
+            }
+            catch (Exception x)
+            {
+                Log(tmpcode, "Error", properties, x.Message);
+                return false;
+            }
+
+        }
+        private bool write2file(SPItemEventProperties properties, string tmpcode, string flocation, string dirname, string fname, string fcontent)
+        {
+            StreamWriter w1 = null;
+            try
+            {
+                // Write the results to the file.
+                w1 = File.AppendText(flocation + dirname + "\\" + fname);
+                w1.WriteLine(NormalizeValue(fcontent));
+
+            }
+            catch (Exception x)
+            {
+                Log(tmpcode, "Error", properties, x.Message);
+                return false;
+            }
+            finally
+            {
+                w1.Flush(); w1.Close();
+            }
+            return true;
+        }
+        static void Log(string code, string status, SPItemEventProperties properties, string msg)
+        {
+            Log(code, status, "Event Receiver 2", properties, msg);
+        }
+
+
+        static void Log(string code, string status, string module, SPItemEventProperties properties, string msg)
+        {
+            try
+            {
+                SPWeb web = properties.OpenWeb();
+                SPList dbglist;
+                if (properties.WebUrl.ToString().Contains("dev"))
+                { dbglist = properties.Web.GetList("/Lists/debuglist"); }
+                else
+                { dbglist = properties.Web.GetList("/apps/pnpdemands/Lists/debuglist"); }
+                
+                SPListItem dbgitm = dbglist.Items.Add();
+                dbgitm["module"] = module;
+                dbgitm["status"] = status;
+                dbgitm["code"] = code;
+                if (msg.Length < 254)
+                {
+                    dbgitm["Title"] = msg;
+                }
+                else
+                {
+                    dbgitm["Title"] = msg.Substring(0, 100) + "...";
+                    dbgitm["details"] = msg + " | " + properties.EventType.ToString();
+                }
+                dbgitm.Update();
+            }//end try
+            catch (Exception ex)
+            {
+                Log2File(@"c:\temp\pnpdemandser_log_" + DateTime.Now.ToString("YYYYMMdd") + ".txt", ex.Message);
+            }
+        }
+    }
+}
