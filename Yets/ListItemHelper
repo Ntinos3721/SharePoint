@@ -1,0 +1,94 @@
+using Microsoft.SharePoint;
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace YETSEETSCommon
+{
+    public class ListItemHelper
+    {
+        readonly SPListItem item;
+        public ListItemHelper(SPListItem item)
+        {
+            this.item = item;
+        }
+
+        public object GetStringOrLookupValue(string fieldName)
+        {
+            try
+            {
+                if (item == null || string.IsNullOrWhiteSpace(fieldName)) return DBNull.Value;
+                if (item[fieldName] == null) return DBNull.Value;
+
+                if (IsLookUpField(fieldName))
+                {
+                    if (item[fieldName].ToString().Split(new string[] { "#" }, StringSplitOptions.RemoveEmptyEntries).Length > 0)
+                        return item[fieldName].ToString().Split(new string[] { "#" }, StringSplitOptions.RemoveEmptyEntries)[1].ToString();
+                    else
+                        return item[fieldName].ToString().Split(new string[] { "#" }, StringSplitOptions.RemoveEmptyEntries)[0].ToString();
+                }
+
+                return item[fieldName].ToString();
+            }
+            catch
+            {
+                return DBNull.Value;
+            }
+        }
+
+        public object GetDateΤimeValue(string fieldName)
+        {
+            try
+            {
+                if (item == null || string.IsNullOrWhiteSpace(fieldName)) return DBNull.Value;
+                if (item[fieldName] == null) return DBNull.Value;
+
+                return DateTime.Parse(item[fieldName].ToString());
+            }
+            catch
+            {
+                return DBNull.Value;
+            }
+        }
+
+        public object GetDecimalOrDefaultValue(string fieldName)
+        {
+            try
+            {
+                if (item == null || string.IsNullOrWhiteSpace(fieldName)) return 0m;
+                if (item[fieldName] == null) return 0m;
+
+                string input = item[fieldName].ToString();
+                decimal parsed = decimal.Parse(input, CultureInfo.CreateSpecificCulture("el-GR"));
+
+                return parsed;
+            }
+            catch
+            {
+                return 0m;
+            }
+        }
+
+        public bool IsLookUpField(string fieldName)
+        {
+            try
+            {
+                SPField field = item.Fields[fieldName] as SPField;
+                if (field != null)
+                {
+                    return field.Type == SPFieldType.Lookup;
+                }
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+    }
+}
