@@ -1,0 +1,73 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Web;
+using Telerik.Web.UI;
+using Telerik.Web.UI.HtmlChart;
+
+namespace ReportApplication
+{
+    public static class ColumnChartHelper
+    {
+        public static ColumnSeries CreateColumnSeries(string name, string dataFormat, System.Drawing.Color color)
+        {
+            ColumnSeries cs = new ColumnSeries();
+            cs.Name = name;
+            cs.LabelsAppearance.DataFormatString = dataFormat;
+            cs.Appearance.FillStyle.BackgroundColor = color;
+            
+            return cs;
+        }
+        public static void CreateCategorySeries(ColumnSeries series, decimal? y)
+        {
+            decimal data = 0m;
+            if (y.HasValue) data = y.Value;
+
+            CategorySeriesItem csi = new CategorySeriesItem(data);
+            series.SeriesItems.Add(csi);
+        }
+
+        public static void BuildXAxis(RadHtmlChart htmlChart, int rotationAngle, params string[] labels)
+        {
+            htmlChart.PlotArea.XAxis.AxisCrossingValue = 0;
+            htmlChart.PlotArea.XAxis.Color = System.Drawing.Color.Black;
+            htmlChart.PlotArea.XAxis.MinorTickType = TickType.Outside;
+            htmlChart.PlotArea.XAxis.MajorTickType = TickType.Outside;
+            htmlChart.PlotArea.XAxis.Reversed = false;
+            htmlChart.PlotArea.XAxis.LabelsAppearance.RotationAngle = rotationAngle;
+
+            foreach (var item in labels)
+            {
+                AxisItem axisItem = new AxisItem(item);
+                htmlChart.PlotArea.XAxis.Items.Add(axisItem);
+            }
+        }
+
+        public static void BuildYAxis(RadHtmlChart htmlChart)
+        {
+            htmlChart.PlotArea.YAxis.AxisCrossingValue = 0;
+            htmlChart.PlotArea.YAxis.Color = System.Drawing.Color.Black;
+            htmlChart.PlotArea.YAxis.MajorTickSize = 1;
+            htmlChart.PlotArea.XAxis.MinorTickType = TickType.None;
+            htmlChart.PlotArea.YAxis.MajorTickType = TickType.Outside;
+            htmlChart.PlotArea.YAxis.Reversed = false;
+            // http://www.telerik.com/forums/setting-culture-to-radhtmlchart-in-backend
+            htmlChart.PlotArea.YAxis.LabelsAppearance.DataFormatString = "C"; //"{0:##.#0,00}"
+        }
+
+        public static void SetChartTitle(RadHtmlChart htmlChart, string text)
+        {
+            htmlChart.ChartTitle.Text = text;
+            htmlChart.ChartTitle.Appearance.BackgroundColor = System.Drawing.Color.Transparent;
+            htmlChart.ChartTitle.Appearance.Align = ChartTitleAlign.Center;
+            htmlChart.ChartTitle.Appearance.Position = ChartTitlePosition.Top;
+        }
+
+        public static void SetLegend(RadHtmlChart htmlChart)
+        {
+            htmlChart.Legend.Appearance.BackgroundColor = System.Drawing.Color.Transparent;
+            htmlChart.Legend.Appearance.Position = ChartLegendPosition.Bottom;
+        }
+    }
+}
