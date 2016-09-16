@@ -1,0 +1,191 @@
+using Microsoft.SharePoint.Client;
+using System;
+using System.Collections.Generic;
+using System.Configuration;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace ClearDebugList
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            try
+            {
+                Console.WriteLine("Process started");
+
+                string module = System.Configuration.ConfigurationManager.AppSettings["Module"];
+                if (string.IsNullOrWhiteSpace(module))
+                    throw new ConfigurationErrorsException("No module defined");
+
+                WriteErrorsToFile("Error");
+
+                ClearDebugListByModule(module);
+
+                //GetViews();
+
+                Console.WriteLine("Process finished");
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+
+            Console.ReadLine();
+        }
+
+        static void WriteErrorsToFile(string status)
+        {
+            Console.WriteLine("WriteAllDebugListToFile");
+
+            Microsoft.SharePoint.Client.ClientContext cc = new Microsoft.SharePoint.Client.ClientContext(ResolveSiteURL());
+            cc.Credentials = ResolveCredentials();
+
+            var debuglist = cc.Web.Lists.GetByTitle("debuglist");
+            if (debuglist == null)
+                throw new NullReferenceException("cannot find debuglist");
+            cc.Load(debuglist);
+            //cc.ExecuteQuery();
+
+            Console.WriteLine("Getting items...");
+
+            var query = new CamlQuery();
+            query.ViewXml = @"<View Scope='RecursiveAll'> " +
+                                "<Query>" +
+                                    "<Where>" +
+                                      "<Eq>" +
+                                        "<FieldRef Name='status' />" +
+                                        "<Value Type='Text'>" + status + "</Value>" +
+                                      "</Eq>" +
+                                   "</Where>" +
+                                   "<RowLimit>" + GetRowLimit() + "</RowLimit>" +
+                                "</Query>" +
+                            "</View>";
+
+            ListItemCollection listItems = debuglist.GetItems(query);  //CamlQuery.CreateAllItemsQuery()
+            cc.Load(listItems, listCollection => listCollection.Include(
+                                            item => item["ID"],
+                                            item => item["Title"],
+                                            item => item["code"],
+                                            item => item["status"],
+                                            item => item["counter"],
+                                            item => item["Modified"]));
+            cc.ExecuteQuery();
+
+            Console.WriteLine("Writing to file...");
+
+            using (StreamWriter sw = new StreamWriter(GetAssemblyDirectory() + "\\debuglist-" + GetEnvironment() + "-" + status + ".txt", false, Encoding.GetEncoding(1253)))
+            {
+                foreach (ListItem item in listItems)
+                {
+                    string line = string.Format("ID:{0}||Title:{1}||code:{2}||status:{3}||counter:{4}||Modified:{5}",
+                                            GetStringValue(item, "ID"),
+                                            GetStringValue(item, "Title"),
+                                            GetStringValue(item, "code"),
+                                            GetStringValue(item, "status"),
+                                            GetStringValue(item, "counter"),
+                                            GetStringValue(item, "Modified"));
+                    sw.WriteLine(line);
+                }
+            }
+        }
+
+        static void ClearDebugListByModule(string module)
+        {
+            var query = new CamlQuery();
+            query.ViewXml = @"<View Scope='RecursiveAll'> " +
+                                "<Query>" +
+                                    "<Where>" +
+                                      "<Eq>" +
+                                        "<FieldRef Name='module' />" +
+                                        "<Value Type='Text'>" + module + "</Value>" +
+                                      "</Eq>" +
+                                   "</Where>" +
+                                "</Query>" +
+                            "</View>";
+
+            Microsoft.SharePoint.Client.ClientContext cc = new Microsoft.SharePoint.Client.ClientContext(ResolveSiteURL());
+            cc.Credentials = ResolveCredentials();
+
+            var debuglist = cc.Web.Lists.GetByTitle("debuglist");
+            if (debuglist == null)
+                throw new NullReferenceException("cannot find debuglist");
+            cc.Load(debuglist);
+            cc.ExecuteQuery();
+
+            Console.WriteLine("Debug Items: " + debuglist.ItemCount);
+
+            ListItemCollection collection = debuglist.GetItems(query);
+            cc.Load(collection);
+            cc.ExecuteQuery();
+
+            Console.WriteLine("Query Items: " + collection.Count);
+            Console.WriteLine("Deleting items...");
+
+            foreach (var item in collection.ToList())
+            {
+                Console.WriteLine("Item: " + item.Id);
+                item.DeleteObject();
+                cc.ExecuteQuery();
+            }
+
+        }
+
+        static string GetStringValue(ListItem item, string fieldName)
+        {
+            if (item == null || item[fieldName] == null)
+                return string.Empty;
+
+            return item[fieldName].ToString();
+        }
+
+        static string GetAssemblyDirectory()
+        {
+            string codeBase = Assembly.GetExecutingAssembly().CodeBase;
+            UriBuilder uri = new UriBuilder(codeBase);
+            string path = Uri.UnescapeDataString(uri.Path);
+            return Path.GetDirectoryName(path);
+        }
+
+        static string ResolveSiteURL()
+        {
+            string env = System.Configuration.ConfigurationManager.AppSettings["Environment"];
+            if (string.IsNullOrWhiteSpace(env))
+                return "http://TODO:81/";
+
+            if (env.Equals("DEV", StringComparison.InvariantCultureIgnoreCase))
+                return "http://dmsdev2013:81/";
+            else if (env.Equals("PRODUCTION", StringComparison.InvariantCultureIgnoreCase))
+                return "http://TODO/TODO/TODO/";
+            else
+                throw new ConfigurationErrorsException("Invalid key: " + env);
+        }
+
+        static string GetEnvironment()
+        {
+            return System.Configuration.ConfigurationManager.AppSettings["Environment"];
+        }
+
+        static string GetRowLimit()
+        {
+            return System.Configuration.ConfigurationManager.AppSettings["RowLimit"];
+        }
+
+        static System.Net.ICredentials ResolveCredentials()
+        {
+            string url = ResolveSiteURL();
+
+            if (url.Contains("dev"))
+                return new System.Net.NetworkCredential("TODO", "TODO", "TODO");
+            else if (url.StartsWith("http://dms/apps/pnpdemands/"))
+                return new System.Net.NetworkCredential("TODO", "TODO", "TODO");
+            else
+                throw new ApplicationException("cannot resolve credentials");
+        }
+    }
+
+}
