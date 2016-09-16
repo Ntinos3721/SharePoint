@@ -1,0 +1,431 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Elements xmlns="http://schemas.microsoft.com/sharepoint/">
+
+  <CustomAction
+    Id="sentsent2TEEcrt"
+    Location="CommandUI.Ribbon.ListView"
+    RegistrationId="0x01002E7E89334A947C41B06E752498CB78EB00A9108B3FBC9EE44FAA1143649565EA6B"
+    RegistrationType="ContentType"
+    Sequence="100"
+    >
+    <CommandUIExtension>
+      <CommandUIDefinitions>
+        <CommandUIDefinition
+          Location="Ribbon.Tabs._children">
+          <Tab
+            Id="Ribbon.sent2TEEcrt"
+            Title="ΑΠΟΣΤΟΛΗ ΤτΕ"
+            Description="Custom Tab Description"
+            Sequence="501">
+            <Scaling
+              Id="Ribbon.sent2TEEcrt.Scaling">
+              <MaxSize
+                Id="Ribbon.sent2TEEcrt.MaxSize"
+                GroupId="Ribbon.sent2TEEcrt.ManageCustomGroup"
+                Size="OneLargeTwoMedium"/>
+              <MaxSize
+                Id="Ribbon.sent2TEEcrt.TabTwoMaxSize"
+                GroupId="Ribbon.sent2TEEcrt.NewOpenCustomGroup"
+                Size="TwoLarge" />
+              <Scale
+                Id="Ribbon.sent2TEEcrt.Scaling.CustomTabScaling"
+                GroupId="Ribbon.sent2TEEcrt.ManageCustomGroup"
+                Size="OneLargeTwoMedium" />
+              <Scale
+                Id="Ribbon.sent2TEEcrt.Scaling.CustomSecondTabScaling"
+                GroupId="Ribbon.sent2TEEcrt.NewOpenCustomGroup"
+                Size="TwoLarge" />
+            </Scaling>
+            <Groups Id="Ribbon.sent2TEEcrt.Groups">
+              <Group
+                Id="Ribbon.sent2TEEcrt.ManageCustomGroup"
+                Description="Group to Custom Functions"
+                Title="Manage Item"
+                Sequence="52"
+                Template="Ribbon.Templates.CustomTemplate">
+                <Controls Id="Ribbon.sent2TEEcrt.ManageCustomGroup.Controls">
+                  <Button
+                    Id="Ribbon.sent2TEEcrt.ManageCustomGroup.Accept"
+                    Command="sent2TEEcrt.AcceptCustomCommand"
+                    Sequence="15"
+                    Image32by32="{SiteUrl}/_layouts/15/1033/Images/formatmap32x32.png?rev=23"
+                    Image32by32Top="-68"
+                    Image32by32Left="-272"
+                    Description="Αποστολή Αιτήματος"
+                    LabelText="Αποστολή"
+                    TemplateAlias="AWR" />
+                  <Button
+                    Id="Ribbon.sent2TEEcrt.ManageCustomGroup.Reject"
+                    Command="sent2TEEcrt.RejectCustomCommand"
+                    Sequence="17"
+                    Image16by16="{SiteUrl}/_layouts/15/1033/Images/formatmap16x16.png?rev=23"
+                    Image16by16Top="-216"
+                    Image16by16Left="-290"
+                    Description="Ακύρωση Αιτήματος"
+                    LabelText="Ακύρωση"
+                    TemplateAlias="RWR"/>
+                  <Button
+                    Id="Ribbon.sent2TEEcrt.ManageCustomGroup.Verify"
+                    Command="sent2TEEcrt.VerifyCustomCommand"
+                    Sequence="19"
+                    Image16by16="{SiteUrl}/_layouts/15/1033/Images/formatmap16x16.png?rev=23"
+                    Image16by16Top="-126"
+                    Image16by16Left="-144"
+                    Description="Verify Item"
+                    LabelText="Verify"
+                    TemplateAlias="ACWR"/>
+                  <Button
+                   Id="Ribbon.sent2TEEcrt.ManageCustomGroup.Close"
+                   Command="sent2TEEcrt.CloseCustomCommand"
+                   Sequence="19"
+                   Image32by32="{SiteUrl}/_layouts/15/1033/Images/formatmap32x32.png?rev=23"
+                   Image32by32Top="-0"
+                   Image32by32Left="-34"
+                   Description="Close Item"
+                   LabelText="Close"
+                   TemplateAlias="CWR"/>
+                  <Button
+                   Id="Ribbon.sent2TEEcrt.ManageCustomGroup.Copy"
+                   Command="sent2TEEcrt.CopyCustomCommand"
+                   Sequence="19"
+                   Image32by32="{SiteUrl}/_layouts/15/1033/Images/formatmap32x32.png?rev=23"
+                   Image32by32Top="-442"
+                   Image32by32Left="-67"
+                   Description="Copy Item"
+                   LabelText="Copy"
+                   TemplateAlias="CPWR"/>
+                </Controls>
+              </Group>
+              <Group
+                Id="Ribbon.sent2TEEcrt.NewOpenCustomGroup"
+                Description="Group to manage item"
+                Title="New &amp; Open"
+                Sequence="53"
+                Template="Ribbon.Templates.CustomTemplate">
+                <Controls Id="Ribbon.sent2TEEcrt.NewOpenCustomGroup.Controls">
+                  <Button
+                    Id="Ribbon.sent2TEEcrt.NewOpenCustomGroup.New"
+                    Command="sent2TEEcrt.NewCustomCommand"
+                    Sequence="15"
+                    Image32by32="{SiteUrl}/_layouts/15/1033/Images/formatmap32x32.png?rev=23"
+                    Image32by32Top="-33"
+                    Image32by32Left="-66"
+                    Description="New Item"
+                    LabelText="New"
+                    TemplateAlias="LOR"/>
+                  <Button
+                   Id="Ribbon.sent2TEEcrt.NewOpenCustomGroup.Open"
+                   Command="sent2TEEcrt.OpenCustomCommand"
+                   Sequence="15"
+                   Image32by32="{SiteUrl}/_layouts/15/1033/Images/formatmap32x32.png?rev=23"
+                   Image32by32Top="-170"
+                   Image32by32Left="-138"
+                   Description="Open Item"
+                   LabelText="Open"
+                   TemplateAlias="LORS"/>
+                </Controls>
+              </Group>
+            </Groups>
+          </Tab>
+        </CommandUIDefinition>
+        <CommandUIDefinition Location="Ribbon.Templates._children">
+          <GroupTemplate Id="Ribbon.Templates.CustomTemplate">
+            <Layout
+              Title="OneLargeTwoMedium"
+              LayoutTitle="OneLargeTwoMedium">
+              <Section Alignment="Top" Type="OneRow">
+                <Row>
+                  <ControlRef DisplayMode="Large" TemplateAlias="AWR" />
+                </Row>
+              </Section>
+              <Section Alignment="Top" Type="TwoRow">
+                <Row>
+                  <ControlRef DisplayMode="Medium" TemplateAlias="RWR" />
+                </Row>
+                <Row>
+                  <ControlRef DisplayMode="Medium" TemplateAlias="ACWR" />
+                </Row>
+              </Section>
+              <Section Alignment="Top" Type="OneRow">
+                <Row>
+                  <ControlRef DisplayMode="Large" TemplateAlias="CWR" />
+                </Row>
+              </Section>
+              <Section Alignment="Top" Type="OneRow">
+                <Row>
+                  <ControlRef DisplayMode="Large" TemplateAlias="CPWR" />
+                </Row>
+              </Section>
+            </Layout>
+            <Layout
+             Title="TwoLarge"
+             LayoutTitle="TwoLarge">
+              <Section Alignment="Top" Type="OneRow">
+                <Row>
+                  <ControlRef DisplayMode="Large" TemplateAlias="LOR" />
+                </Row>
+              </Section>
+              <Section Alignment="Top" Type="OneRow">
+                <Row>
+                  <ControlRef DisplayMode="Large" TemplateAlias="LORS" />
+                </Row>
+              </Section>
+            </Layout>
+          </GroupTemplate>
+        </CommandUIDefinition>
+      </CommandUIDefinitions>
+      <CommandUIHandlers>
+        <CommandUIHandler
+          Command="sent2TEEcrt.AcceptCustomCommand"
+          CommandAction="javascript:
+            var context;
+            var currentItem ;
+            var currentItemNo;
+            var noItems;
+           
+         // refresh all list view web parts on the page
+function listViewRefresh() {
+ inplview.MyRestoreAllClvpsNavigation = MyRestoreAllClvpsNavigation;
+ inplview.MyRestoreAllClvpsNavigation();
+}
+ 
+// Enumerate list view web parts
+function MyRestoreAllClvpsNavigation()
+{
+ EnumCLVPs(MyCLVPRestoreNavigation);
+}
+ 
+// refresh referencing list view web part
+function MyCLVPRestoreNavigation(clvp) {
+ var strHash = ajaxNavigate.getParam('InplviewHash' + clvp.WebPartId());
+ if (strHash == null)
+ strHash = '';
+ 
+ var strInpl = '?' + DecodeHashAsQueryString(strHash);
+ var strShowInGrid = GetUrlKeyValue('ShowInGrid', true, strInpl);
+ 
+ if (strShowInGrid == 'True') {
+ InitGridFromView(clvp.ctx.view, true);
+ }
+ else if (clvp.ctx.inGridMode) {
+ ExitGrid(clvp.ctx.view, true);
+ }
+ clvp.strHash = strHash;
+ clvp.fRestore = true;
+ var curRootFolder = GetRootFolder2(this);
+ 
+ if (curRootFolder != null)
+ strInpl = SetUrlKeyValue('RootFolder', unescapeProperly(curRootFolder), true, strInpl);
+ clvp.RefreshPagingEx(strInpl, true, null);
+ 
+ }
+
+          function onQuerySucceededUpdate (sender, args) {
+           
+               currentItemNo++;        
+                   //alert('cancelledcurrentItemNo:'+cancelledcurrentItemNo);
+                     if ( currentItemNo == noItems ) {
+                        listViewRefresh();
+
+                      //window.location.href = window.location.href;
+                     }
+          }    
+ 
+          function onQueryFailedUpdate(sender, args) {
+            alert('Error occured' + args.get_message());
+          }  
+           
+          function UpdateStatus(val)
+          {
+            context = SP.ClientContext.get_current();
+            var web = context.get_web();
+             context.load(web);
+             var currentlibid = SP.ListOperation.Selection.getSelectedList();
+             var currentLib = web.get_lists().getById(currentlibid);
+             var selectedItems = SP.ListOperation.Selection.getSelectedItems(context);
+             noItems = selectedItems.length;
+             currentItemNo=0;
+             for(var i in selectedItems)
+              {
+                currentItem = currentLib.getItemById(selectedItems[i].id);
+                context.load(currentItem);
+                if(currentItem != null) {
+                  currentItem.set_item('sent2TEE', val);
+                  currentItem.update();
+                }
+                context.executeQueryAsync(Function.createDelegate(this, onQuerySucceededUpdate), Function.createDelegate(this, onQueryFailedUpdate));
+              }// End for
+           
+          }//End UpdateStatus
+ 
+           
+          UpdateStatus('true');
+"
+           EnabledScript="javascript:
+    function isEnable(){
+      if(location.href.indexOf('apostoliEETS') > 0){
+        return true;
+      }
+      return false;
+    }
+    isEnable();"
+
+         
+          />
+
+
+        <CommandUIHandler
+            Command="sent2TEEcrt.RejectCustomCommand"
+      
+         CommandAction="javascript:
+            var context;
+            var currentItem ;
+            var cancellednoItems;
+            var cancelledcurrentItemNo;
+           
+          // refresh all list view web parts on the page
+function listViewRefresh() {
+
+ inplview.MyRestoreAllClvpsNavigation = MyRestoreAllClvpsNavigation;
+ inplview.MyRestoreAllClvpsNavigation();
+}
+ 
+// Enumerate list view web parts
+function MyRestoreAllClvpsNavigation()
+{
+ EnumCLVPs(MyCLVPRestoreNavigation);
+}
+ 
+// refresh referencing list view web part
+function MyCLVPRestoreNavigation(clvp) {
+ var strHash = ajaxNavigate.getParam('InplviewHash' + clvp.WebPartId());
+ if (strHash == null)
+ strHash = '';
+ 
+ var strInpl = '?' + DecodeHashAsQueryString(strHash);
+ var strShowInGrid = GetUrlKeyValue('ShowInGrid', true, strInpl);
+ 
+ if (strShowInGrid == 'True') {
+ InitGridFromView(clvp.ctx.view, true);
+ }
+ else if (clvp.ctx.inGridMode) {
+ ExitGrid(clvp.ctx.view, true);
+ }
+ clvp.strHash = strHash;
+ clvp.fRestore = true;
+ var curRootFolder = GetRootFolder2(this);
+ 
+ if (curRootFolder != null)
+ strInpl = SetUrlKeyValue('RootFolder', unescapeProperly(curRootFolder), true, strInpl);
+ clvp.RefreshPagingEx(strInpl, true, null);
+ 
+ }
+ 
+          function onQuerySucceededUpdatecancelled (sender, args) {
+                   cancelledcurrentItemNo++;
+                   
+                   //alert('cancelledcurrentItemNo:'+cancelledcurrentItemNo);
+                     if ( cancelledcurrentItemNo == cancellednoItems ) {
+                      listViewRefresh();
+                    // alert('cancellednoItems:'+cancellednoItems);
+                    // window.location.href = window.location.href;
+                     }
+
+          }    
+ 
+          function onQueryFailedUpdatecancelled(sender, args) {
+            alert('Error occured' + args.get_message());
+          }  
+           
+          function UpdateStatuscancelled(val)
+          {
+           
+            context = SP.ClientContext.get_current();
+            var web = context.get_web();
+             context.load(web);
+             var currentlibid = SP.ListOperation.Selection.getSelectedList();
+             var currentLib = web.get_lists().getById(currentlibid);
+             var selectedItems = SP.ListOperation.Selection.getSelectedItems(context);
+             cancellednoItems = selectedItems.length;
+             cancelledcurrentItemNo=0;
+             for(var i in selectedItems)
+                {
+                currentItem = currentLib.getItemById(selectedItems[i].id);
+                context.load(currentItem);
+                if(currentItem != null) {
+                  currentItem.set_item('sent2TEE', val);
+                  currentItem.set_item('ApostoliEgkrisisDate', null);
+                  currentItem.update();
+                }
+                context.executeQueryAsync(Function.createDelegate(this, onQuerySucceededUpdatecancelled), Function.createDelegate(this, onQueryFailedUpdatecancelled));
+              }// End for
+              
+           
+          }//End UpdateCategory
+ 
+           
+          UpdateStatuscancelled('cancelled');
+            
+"
+             EnabledScript="javascript:
+    function isEnable(){
+      if(location.href.indexOf('sent2EETS') > 0){
+        return true;
+      }
+      return false;
+    }
+    isEnable();"
+          
+          />
+
+
+        <CommandUIHandler
+          Command="sent2TEEcrt.VerifyCustomCommand"
+          CommandAction="javascript:GetCurrentItem('AK');"
+          EnabledScript="javascript:
+          function enableVerifyCustomCommand() {
+          return false;
+          }
+          enableVerifyCustomCommand();
+          "/>
+        <CommandUIHandler
+          Command="sent2TEEcrt.NewCustomCommand"
+          CommandAction="javascript:AddNewCustom();"
+          EnabledScript="javascript:
+          function enableVerifyCustomCommand() {
+          return false;
+          }
+          enableVerifyCustomCommand();"/>
+        <CommandUIHandler
+          Command="sent2TEEcrt.OpenCustomCommand"
+          CommandAction="javascript:OpenExistingCustom();"
+          EnabledScript="javascript:
+          function enableVerifyCustomCommand() {
+          return false;
+          }
+          enableVerifyCustomCommand();
+          "/>
+        <CommandUIHandler
+          Command="sent2TEEcrt.CloseCustomCommand"
+          CommandAction="javascript:CloseExistingCustom();"
+          EnabledScript="javascript:
+          function enableVerifyCustomCommand() {
+          return false;
+          }
+          enableVerifyCustomCommand();
+          "/>
+        <CommandUIHandler
+          Command ="sent2TEEcrt.CopyCustomCommand"
+          CommandAction="Javascript:CopyCustom();"
+          EnabledScript="javascript:
+          function enableVerifyCustomCommand() {
+          return false;
+          }
+          enableVerifyCustomCommand();"
+          />
+      </CommandUIHandlers>
+    </CommandUIExtension>
+  </CustomAction>
+  <CustomAction Id="Ribbon.Library.Actions.Scripts"
+      Location ="ScriptLink" ScriptSrc="/_layouts/15/RBsent2TEE/javascript1.js" />
+</Elements>
