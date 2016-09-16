@@ -1,0 +1,52 @@
+public IQueryable<Category1BranchDto> GetDataUnderBranchProcess(List<string> statusesYpovolis)
+        {
+            var types = new List<int> { (int)AitimaType.NOMIKA, (int)AitimaType.FYSIKA_ME_EIDOS_ENTOLEA_NOMIKO };
+
+            IQueryable<Aitimata> baseQuery = this.Aitimatas.AsNoTracking().Where(x => x.Code != null && x.Code != "" 
+                                                                                    && (x.statusMD == null || x.statusMD == "")
+                                                                                    && (x.statusDPXP == null || x.statusDPXP == "")
+                                                                                    && statusesYpovolis.Contains(x.StatusYpovolis));
+
+            var npQuery = from item in baseQuery
+                          where item.AitimaType == (int)AitimaType.NOMIKA
+                          select item;
+
+            var lsQuery = from item in baseQuery
+                          where item.AitimaType == (int)AitimaType.FYSIKA_ME_EIDOS_ENTOLEA_NOMIKO
+                          select item;
+
+            var query = from item in this.Aitimatas.AsNoTracking()
+                        join np in npQuery on item.ID equals np.ID into npGroup
+                        from npg in npGroup.DefaultIfEmpty()
+                        join ls in lsQuery on item.ID equals ls.ID into lsGroup
+                        from lsg in lsGroup.DefaultIfEmpty()
+                        where item.Code != null && item.Code != ""
+                        && (item.statusMD == null || item.statusMD == "")
+                        && (item.statusDPXP == null || item.statusDPXP == "")
+                        && types.Contains(item.AitimaType.Value)
+                        && statusesYpovolis.Contains(item.StatusYpovolis)
+                        select new
+                        {
+                            MonadaDiax = item.MonadaDiax,
+                            NPid = npg.ID,
+                            NPcode = npg.Code,
+                            NPIsotimo = npg.IsotimoEuro,
+                            LSid = lsg.ID,
+                            LScode = lsg.Code,
+                            LSIsotimo = lsg.IsotimoEuro
+                        }
+                        into x
+                        group x by x.MonadaDiax into grouped
+                        select new Category1BranchDto
+                        {
+                            MonadaDiax = grouped.Key,
+                            NPtimologia = grouped.Select(s => s.NPid).Count(),
+                            NPAitimata = grouped.Select(s => s.NPcode).Distinct().Count(),
+                            NPTotal = grouped.Sum(s => s.NPIsotimo),
+                            LStimologia = grouped.Select(s => s.LSid).Count(),
+                            LSAitimata = grouped.Select(s => s.LScode).Distinct().Count(),
+                            LSTotal = grouped.Sum(s => s.LSIsotimo)
+                        };
+
+            return query;
+        }
