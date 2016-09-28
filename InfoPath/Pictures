@@ -1,0 +1,8 @@
+/* Picture control that points to current attachment url ... */
+Picture properties, XPath button, Show advanced view, Attachments, :attachmentURL
+
+/* Picture control with preview functionality */
+1. Select from Fields list, the field related to picture control.
+2. Double-click and for default value, enter the following formula
+   concat("http://XXXX:82/sites/trademarks/Lists/Trademarks/Attachments/"; ID; "/Logo.png")
+
