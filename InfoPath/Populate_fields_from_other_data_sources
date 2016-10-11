@@ -6,7 +6,8 @@
 We implement the following steps:
 1. We create a new hidden field, SupplierIdHD, by adding a new field on the form. We then remove it from the form, 
    because we don't want it to be visible to the users.
-2. We create a new data connection, Suppliers_Data_Connection that points to 'Προμηθευτές'.
+2. We create a new data connection, Suppliers_Data_Connection that points to 'Προμηθευτές',
+   because Contracts_Data_Connection does not contain the supplier name, just the ID value.
 3. We create a new rule on the drop-down, SetSupplierName, with the following actions:
    3.1 Set a field's value, in the Field option we select the SupplierIdHD hidden field. 
        In the Value, we build the following formula. 
@@ -16,7 +17,7 @@ We implement the following steps:
        Now we have a collection in our hands, so we want to filter it.
        We press Filter Data..., Add..., 'Αναγνωριστικό' (which is the ID of Contracts_Data_Connection) is equal to select a field or group...
        In the pop-up window in Fields we select the <!--Main--> and in the dataFields we select 'Αριθμός Σύμβασης' 
-       which is the name of the drop-down (with value the ID of Contracts_Data_Connection).
+       which is the field name of the drop-down (with value the ID of Contracts_Data_Connection).
        We press Ok until  we come back to the Action window.
    3.2 So we have the ID of Προμηθευτή in the hidden field, based on dropdown selection.
        Add a Query for Data action with data connection, the Suppliers_Data_Connection. We use this data connection 
