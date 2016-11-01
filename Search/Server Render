@@ -1,0 +1,2 @@
+When we use a Filter web part for search reasons, in order for the list filters to be applied properly,
+edit List web part and check Server Render.
