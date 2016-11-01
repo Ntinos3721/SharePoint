@@ -3,3 +3,21 @@ http://www.learningsharepoint.com/2013/05/03/missing-save-site-as-template-for-p
 
 Save a SharePoint site as a template
 https://support.office.com/en-us/article/Save-a-SharePoint-site-as-a-template-5a4eb024-d1fa-4681-a4ac-e6bd1e3209ba
+
+
+Maybe it's an old post but i did the
+following process to create the site template:  
+1. Deactivate the publishing feature from the site, not from the
+site collection.
+2. Follow the steps in this post
+3. use the template in any site collection.
+
+I have done this and i have been create site collections and
+sites with the created site template with no issues, even when it's a different
+site collection.
+
+Thanks.
+
+Comment from the following link
+https://blogs.msdn.microsoft.com/how24/2013/06/13/save-sharepoint-2013-publishing-site-as-a-template/
+
