@@ -1,0 +1,13 @@
+Καλησπέρα,
+
+Έχουμε την περίπτωση σε εφαρμογή 2010, όπου θέλουμε να «καθαρίσουμε» ένα Person field.
+
+Τη λύση προτείνει το παρακάτω:
+http://stackoverflow.com/questions/7826318/remove-a-value-from-a-infopath-2010-people-picker-field-programmatically
+
+Και πιο αναλυτικά εδώ:
+http://officepoint.blogspot.gr/2008/07/programmatically-remove-infopath.html
+
+Ουσιαστικά όμως καταλήγουμε στη χρήση custom code:
+http://johanolivier.blogspot.gr/2010/08/infopath-2010-development-part-1-add.html
+
