@@ -1,0 +1,5 @@
+We use the semi colon, because of regional settigns issues.
+
+The following is the formula we use in the new calculated field.
+
+=IF([Αριθμός Σήματος]<>"";TEXT([Αριθμός Σήματος];"0");"")
