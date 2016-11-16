@@ -1,0 +1,12 @@
+Let’s say we want to change the URL of your Web Service changes.
+https://panvega.wordpress.com/2008/01/05/modify-a-xsn-infopath-by-using-makecab-command/
+
+These are the steps:
+1. Save infopath form as .xsn
+2. Rename file to .cab and extract
+3. Do your changes
+4. We need to create a text file (check directives.txt). Check carefully the paths and what is included there.
+5. Use a tool called Make-Cab which can be found in C:\Windows\System32\makecab.exe.
+   e.g. From command line, go to C:\Windows\System32\. 
+        Call MakeCab /f C:\temp\CabScenario\Cab\directives.txt
+6. Check the final .xsn
