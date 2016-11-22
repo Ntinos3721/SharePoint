@@ -1,0 +1,10 @@
+http://SERVER/sites/Lab/_vti_bin/client.svc
+http://SERVER/sites/Lab/_vti_bin/client.svc/Web/Lists
+http://SERVER/sites/Lab/_vti_bin/client.svc/Web/Lists?$select=Title
+http://SERVER/sites/Lab/_vti_bin/client.svc/Web/Lists/getByTitle(‘Products’)
+
+http://SERVER/sites/Lab/_api/Web/Lists(guid’xxxxxxx-xxxx-xxxx....’)
+http://SERVER/sites/Lab/_api /Web/Lists/getByTitle(‘Products’)/Items
+http://SERVER/sites/Lab/_api /Web/Lists/getByTitle(‘Products’)/Items?$select=Title,Body
+http://SERVER/sites/Lab/_api /Web/Lists/getByTitle(‘Products’)/Items?$filter=startswith(Title,’P’)
+http://SERVER/sites/Lab/_api /Web/Lists/getByTitle(‘Products’)/Items?$filter=startswith(Title,’P’)&select=Title,Body
