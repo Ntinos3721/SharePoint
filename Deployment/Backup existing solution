@@ -1,0 +1,9 @@
+For example, we have an existing event receiver (pnpdemandser), and we want to backup:
+
+if ((Get-PSSnapin "Microsoft.SharePoint.PowerShell" -ErrorAction SilentlyContinue) -eq $null) {    
+Add-PSSnapin "Microsoft.SharePoint.PowerShell"
+}
+
+$farm = Get-SPFarm
+$er1 = $farm.Solutions.Item("pnpdemandser.wsp").SolutionFile
+$er1.SaveAs("c:\temp\PNPDemandsER_Production.wsp")
