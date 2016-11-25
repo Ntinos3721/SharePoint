@@ -11,6 +11,7 @@ Deploy .wsp
 1. Go to Visual Studio, Build menu and Publish …
 2. Run SharePoint 2013 Management Shell as administrator.
 3. Write Add-SPSolution, press enter and for LiteralPath parameter, enter the path where .wsp exists (e.g. C:\Temp\spapppage.wsp).
+   (Adds a SharePoint solution package to the farm. This cmdlet does not deploy the uploaded SharePoint solution.)
 4. Go to administration site, farm solutions and deploy the .wsp.
 
 
