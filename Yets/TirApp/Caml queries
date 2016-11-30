@@ -1,0 +1,40 @@
+var query = new SPQuery();
+            //query.RowLimit = 20;
+            query.ViewXml =
+                "<View Scope=\"RecursiveAll\"> " +
+                //"<ViewFields>" +
+                //         "<FieldRef Name='Title'/>" +
+                //"</ViewFields>" +
+                    "<Query>" +
+                        "<Where>" +
+                            "<And>" +
+                              "<And>" + 
+                                   "<And>" +
+                                     "<And>" +
+                                           "<And>" +
+                                              "<Eq><FieldRef Name='" + FieldNames.TITLE + "' /><Value Type='Text'>Αίτημα Συναλλαγής</Value></Eq>" +
+                                              "<Or>" +
+                                                    "<Eq><FieldRef Name='" + FieldInternalNames.STATUS_YPOVOLIS_NP + "' /><Value Type='Choice'>ΕΚΚΑΘΑΡΙΣΘΕΝ ΑΠΟ ΚΑΤΑΣΤΗΜΑ</Value></Eq>" +
+                                                    "<Eq><FieldRef Name='" + FieldInternalNames.STATUS_YPOVOLIS_NP + "' /><Value Type='Choice'>ΕΚΚΑΘΑΡΙΣΘΕΝ ΑΠΟ ΜΟΝΑΔΑ</Value></Eq>" +
+                                              "</Or>" +
+                                           "</And>" +
+                                       "<Or>" +
+                                         "<Eq><FieldRef Name='" + FieldInternalNames.STATUS_MONADAS_DIAXEIRISHS_NP + "' /><Value Type='Choice'>ΕΛΕΓΜΕΝΟ ΠΡΟΣ ΥΕΤΣ</Value></Eq>" +
+                                         "<Eq><FieldRef Name='" + FieldInternalNames.STATUS_MONADAS_DIAXEIRISHS_NP + "' /><Value Type='Choice'>ΕΛΕΓΜΕΝΟ ΠΡΟΣ ΕΕΤΣ</Value></Eq>" +
+                                       "</Or>" +                                             
+                                     "</And>" +
+                                     "<Or>" +               
+                                         "<Or>" +
+                                            "<Eq><FieldRef Name='" + FieldInternalNames.STATUS_DPXP_NP + "' /><Value Type='Choice'>ΕΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ</Value></Eq>" +
+                                            "<Eq><FieldRef Name='" + FieldInternalNames.STATUS_DPXP_NP + "' /><Value Type='Choice'>ΥΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ</Value></Eq>" +
+                                         "</Or>" +
+                                         "<Eq><FieldRef Name='" + FieldInternalNames.STATUS_DPXP_NP + "' /><Value Type='Choice'>ΕΕΤΣ ΕΓΚΕΚΡΙΜΕΝΟ ΥΠΟ ΟΡΟΥΣ</Value></Eq>" +
+                                     "</Or>" +
+                                   "</And>" +
+                                   "<IsNull><FieldRef Name='" + FieldInternalNames.SENT_2_TEIRESIAS_NP + "' /></IsNull>" +
+                                  "</And>" +
+                                  "<IsNotNull><FieldRef Name='" + FieldInternalNames.HMNIA_EKKATHARISIS_SYNALLAGHS_NP + "'/></IsNotNull>" +
+                              "</And>" +
+                          "</Where>" +
+                     "</Query>" +
+                "</View>";
