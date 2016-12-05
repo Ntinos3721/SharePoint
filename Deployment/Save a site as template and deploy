@@ -1,0 +1,41 @@
+
+
+Save Site Template
+
+http://www.learningsharepoint.com/2013/05/03/missing-save-site-as-template-for-publishing-sites-in-sharepoint-2013/
+
+http://www.learningsharepoint.com/2012/11/23/how-to-save-site-as-template-in-sharepoint-2013/
+
+https://support.office.com/en-us/article/Save-a-SharePoint-site-as-a-template-5a4eb024-d1fa-4681-a4ac-e6bd1e3209ba
+
+http://sharepointdevindia1.blogspot.gr/2013/04/difference-between-site-template-and.html
+
+ 
+
+Maybe it's an old post but i did the following process to
+create the site template:  
+
+1. Deactivate the publishing feature from the site, not from
+the site collection.
+
+2. Follow the steps in this post
+
+3. use the template in any site collection.
+
+I have done this and i have been create site collections and
+sites with the created site template with no issues, even when it's a different
+site collection.Thanks.
+
+Comment from the following link
+
+https://blogs.msdn.microsoft.com/how24/2013/06/13/save-sharepoint-2013-publishing-site-as-a-template/
+
+ 
+
+<nativehr>0x8107058a</nativehr><nativestack></nativestack>Failed
+to instantiate file "CandidateER_ImportCandWP.webpart" from module
+"_catalogswp_Features\CandidateER_Feature2\ImportCandWP": Source path
+"Features\CandidateER_Feature2\ImportCandWP\ImportCandWP.webpart" not
+found. 
+
+https://social.msdn.microsoft.com/Forums/en-US/7aef11ba-f6d2-4aea-ab70-258c3515f99e/the-operation-could-not-be-completed-because-the-item-was-removed-from-the-gallery-sharepoint-2010?forum=sharepointdevelopmentprevious
