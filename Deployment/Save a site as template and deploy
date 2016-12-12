@@ -1,5 +1,12 @@
+Create a site collection based on site template
+------------------------------------------------
+1. Application Management, Site Collections and Create site collections.
+2. Select Custom tab and continue with site creation.
+3. After site creation, follow the solutions link, upload site template and Activate.
+4. Browse to the new site collection, go to Custom tab and select the new template and press OK.
 
 
+-------------------------------------------------------------------------------------------------------------------
 Save Site Template
 
 http://www.learningsharepoint.com/2013/05/03/missing-save-site-as-template-for-publishing-sites-in-sharepoint-2013/
