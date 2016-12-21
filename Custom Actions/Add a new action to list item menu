@@ -1,0 +1,14 @@
+For example, in application page project and inside Elements.xml add the following:
+
+<Elements xmlns="http://schemas.microsoft.com/sharepoint/">
+  <CustomAction
+    Id="OPTIONAL TEXT"
+    RegistrationType="ContentType"
+    RegistrationId="Optional Text. Specifies the identifier of the list or item content type that this action is associated with, 
+                      or the file type or programmatic identifier (ProgID)."
+    Location="EditControlBlock"
+    Sequence="800"
+    Title="Do Something">
+    <UrlAction Url="{SiteUrl}/_layouts/15/ProjectName/ApplicationPage1.aspx?ItemId={ItemId}"/>
+  </CustomAction>
+</Elements>
