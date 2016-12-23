@@ -1,0 +1,38 @@
+ SPFile fileToDownload = listItem.File;
+                    if (fileToDownload != null)
+                    {
+                        try
+                        {
+                            // retrieve the file as a byte array
+                            byte[] binaryFile = fileToDownload.OpenBinary();
+
+                            string tempDirectory = "C:\\Temp\\LabReports";
+                            if (!Directory.Exists(tempDirectory)) Directory.CreateDirectory(tempDirectory);
+
+                            string filePath = Path.Combine(tempDirectory, fileToDownload.Name);
+                            // open the file stream and write the file ...
+                            using (FileStream fs = new FileStream(filePath, FileMode.Create, FileAccess.ReadWrite))
+                            {
+                                fs.Write(binaryFile, 0, binaryFile.Length);
+                            }
+
+                            // ASP.NET Web page and server control code executes in the context of the ASP.NET worker process on the Web server.
+                            // If you use the Start method in an ASP.NET Web page or server control, 
+                            //      the new process executes on the Web server with restricted permissions. 
+                            // The process does not start in the same context as the client browser, 
+                            //      and does not have access to the user desktop.
+                            using (System.Diagnostics.Process process = new Process())
+                            {
+                                process.StartInfo = new ProcessStartInfo(filePath);
+                                process.Start();
+                            }
+                        }
+                        catch (IOException ioEx)
+                        {
+                            throw ioEx;
+                        }
+                        catch (Exception ex)
+                        {
+                            throw ex;
+                        }
+                    }
