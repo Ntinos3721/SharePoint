@@ -8,16 +8,16 @@
             //SP.SOD.executeOrDelayUntilScriptLoaded(BoardOfDirectors, "sp.js");
             ////SP.SOD.executeFunc('sp.js', 'SP.ClientContext', BoardOfDirectors);
 
-            SP.SOD.executeFunc("MyApplication.Resources.resx", 'Resources', BoardOfDirectors)
+            SP.SOD.executeFunc("MyApplication.Resources.resx", 'Resources', OrgModel)
         }, "strings.js");
 
 
 
     });
 
-    function BoardOfDirectors() {
+    function OrgModel() {
         // Window loaded, we check for registered paramers
-        $.each(window.webpartparams["BoardOfDirectors"], function (index, item) {
+        $.each(window.webpartparams["OrgModel"], function (index, item) {
             createDom(item);
         });
 
@@ -56,10 +56,10 @@
                                     var listItemInfo = '<table class="board" width="100%">';
                                     listItemInfo += '    <tr class="top">';
                                     listItemInfo += '		<th align="center" class="empty" width="40%">&nbsp;</th>';
-                                    listItemInfo += '		<th align="center" class="one">' + Bank.Resources.fldaudit + '</th>';
-                                    listItemInfo += '		<th align="center" class="two">' + Bank.Resources.fldrisk + '</th>';
-                                    listItemInfo += '		<th align="center" class="three">' + Bank.Resources.fldremuneration + '</th>';
-                                    listItemInfo += '		<th align="center" class="four">' + Bank.Resources.fldcorporateGovernance + '</th>';
+                                    listItemInfo += '		<th align="center" class="one">' + MyApplication.Resources.fldaudit + '</th>';
+                                    listItemInfo += '		<th align="center" class="two">' + MyApplication.Resources.fldrisk + '</th>';
+                                    listItemInfo += '		<th align="center" class="three">' + MyApplication.Resources.fldremuneration + '</th>';
+                                    listItemInfo += '		<th align="center" class="four">' + MyApplication.Resources.fldcorporateGovernance + '</th>';
                                     listItemInfo += '	</tr>';
                                     listItemInfo += '	<tr class="empty">';
                                     listItemInfo += '		<td colspan="5">&nbsp;</td>';
