@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Elements xmlns="http://schemas.microsoft.com/sharepoint/" >
+  <Module Name="Accordion" List="113" Url="_catalogs/wp">
+    <File Path="Accordion\Accordion.webpart" Url="MyApplication_Accordion.webpart" Type="GhostableInLibrary" ReplaceContent="TRUE" >
+      <Property Name="Group" Value="MyApplication" />
+    </File>
+  </Module>
+</Elements>
