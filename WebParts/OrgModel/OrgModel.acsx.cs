@@ -7,10 +7,10 @@ using System.Collections;
 using Microsoft.SharePoint;
 using System.Collections.Generic;
 
-namespace WebParts.BoardOfDirectors
+namespace WebParts.OrgModel
 {
     [ToolboxItemAttribute(false)]
-    public partial class BoardOfDirectors : WebPart, IWebEditable
+    public partial class OrgModel : WebPart, IWebEditable
     {
         protected string ProtParamListPath;
         [Personalizable(PersonalizationScope.Shared), WebBrowsable(false)]
@@ -63,7 +63,7 @@ namespace WebParts.BoardOfDirectors
         // for production. Because the SecurityPermission attribute bypasses the security check for callers of
         // your constructor, it's not recommended for production purposes.
         // [System.Security.Permissions.SecurityPermission(System.Security.Permissions.SecurityAction.Assert, UnmanagedCode = true)]
-        public BoardOfDirectors()
+        public OrgModel()
         {
         }
 
