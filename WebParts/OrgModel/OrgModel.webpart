@@ -2,13 +2,13 @@
 <webParts>
   <webPart xmlns="http://schemas.microsoft.com/WebPart/v3">
     <metaData>
-      <type name="BankPortal.WebParts.BoardOfDirectors.BoardOfDirectors, $SharePoint.Project.AssemblyFullName$" />
+      <type name="MyApplication.WebParts.OrgModel.OrgModel, $SharePoint.Project.AssemblyFullName$" />
       <importErrorMessage>$Resources:core,ImportErrorMessage;</importErrorMessage>
     </metaData>
     <data>
       <properties>
-        <property name="Title" type="string">Board Of Directors</property>
-        <property name="Description" type="string">Board Of Directors</property>
+        <property name="Title" type="string">OrgModel</property>
+        <property name="Description" type="string">Org Model</property>
         <property name="ChromeType" type="chrometype">None</property>
       </properties>
     </data>
