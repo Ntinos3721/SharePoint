@@ -1,0 +1,152 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Web.UI.WebControls.WebParts;
+using System.Web.UI.WebControls;
+using System.Web.UI;
+using System.Globalization;
+using Microsoft.SharePoint;
+using Microsoft.SharePoint.Utilities;
+
+
+namespace WebParts.BoardOfDirectors
+{
+    class OrgModelWPEditor : EditorPart
+    {
+
+        protected DropDownList ddlAllSites1;
+        protected DropDownList ddlSiteLists1;
+
+        protected override void CreateChildControls()
+        {
+
+            BoardOfDirectors BoardOfDirectorsWebpart = this.WebPartToEdit as BoardOfDirectors;
+
+            this.Title = "";
+
+            ddlAllSites1 = new DropDownList();
+            ddlSiteLists1 = new DropDownList();
+
+            //Initialize Dropdown with all sites
+            this.Controls.Add(new LiteralControl("<br/><b>" + SPUtility.GetLocalizedString("$Resources:AppResources,AllSites", "AppResources", (uint)CultureInfo.CurrentUICulture.LCID) + ":</b><br/>"));
+            InitializeSiteDropdown(ddlAllSites1);
+            ddlAllSites1.AutoPostBack = true;
+            ddlAllSites1.SelectedIndexChanged += new EventHandler(ddlAllSites1_SelectedIndexChanged);
+            this.Controls.Add(ddlAllSites1);
+
+            //Initialize Dropdown with all lists for selected site
+            this.Controls.Add(new LiteralControl("<br/><b>" + SPUtility.GetLocalizedString("$Resources:AppResources,AllLists", "AppResources", (uint)CultureInfo.CurrentUICulture.LCID) + ":</b><br/>"));
+            InitializeListDropdown(ddlSiteLists1, ddlAllSites1);
+            this.Controls.Add(ddlSiteLists1);
+
+
+            base.CreateChildControls();
+            this.ChildControlsCreated = true;
+        }
+
+
+
+        private void InitializeSiteDropdown(DropDownList ddlAllSites)
+        {
+            SPSite siteCollection = SPContext.Current.Site;
+
+            SPSecurity.RunWithElevatedPrivileges(delegate()
+            {
+                SPSite site = new SPSite(siteCollection.ID);
+                site.AllWebs.Cast<SPWeb>().
+                Select(w => new { w.ServerRelativeUrl, w.Title }).ToList().
+                ForEach(s => ddlAllSites.Items.Add(new ListItem(s.Title, s.ServerRelativeUrl)));
+            });
+        }
+
+        private void InitializeListDropdown(DropDownList ddlSiteLists, DropDownList ddlAllSites)
+        {
+            ddlSiteLists.Items.Clear();
+
+            ListItem selectItem = new ListItem(" - " + SPUtility.GetLocalizedString("$Resources:AppResources,SelectList", "AppResources", (int)CultureInfo.CurrentUICulture.LCID) + " - ", string.Empty);
+
+            ddlSiteLists.Items.Add(selectItem);
+
+
+
+            SPSite siteCollection = SPContext.Current.Site;
+
+            SPSecurity.RunWithElevatedPrivileges(delegate()
+            {
+                SPSite site = new SPSite(siteCollection.ID);
+                SPWeb rootWeb = site.RootWeb;
+                SPWeb oWeb = site.OpenWeb(ddlAllSites.SelectedValue);
+
+                ///get all list templates in current site.
+                //SPListTemplateCollection listTemplates = site.GetCustomListTemplates(oWeb);
+
+                SPListTemplate listTemplate = rootWeb.ListTemplates["OrgModel List"];
+
+                Guid myTemplateId = Guid.Empty;
+                myTemplateId = listTemplate.FeatureId;
+
+                //loop through all templates and find your template id
+                
+                if (!myTemplateId.Equals(Guid.Empty))
+                    oWeb.Lists.Cast<SPList>().
+                        Where(l => !l.Hidden).
+                        Where(l => l.TemplateFeatureId.Equals(myTemplateId)).
+                        Select(l => l.Title).ToList().
+                        ForEach(t => ddlSiteLists.Items.Add(new ListItem(t, t)));
+            });
+
+        }
+
+        private void ddlAllSites1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            InitializeListDropdown(ddlSiteLists1, ddlAllSites1);
+
+            ddlSiteLists1.SelectedValue = String.Empty;
+
+        }
+        //ApplyChanges is used to save any changes to the currently-edited Web Part.
+        public override bool ApplyChanges()
+        {
+
+            EnsureChildControls();
+
+            BoardOfDirectors BoardOfDirectorswebPart = this.WebPartToEdit as BoardOfDirectors;
+
+            if (BoardOfDirectorswebPart != null)
+            {
+                BoardOfDirectorswebPart.ParamSiteUrl = SPUtility.GetFullUrl(SPContext.Current.Site, ddlAllSites1.SelectedValue);
+                BoardOfDirectorswebPart.ParamListPath = ddlSiteLists1.SelectedValue;
+            }
+            return true;
+
+        }
+
+
+
+
+        // SyncChanges is used to load the current configuration from Web Part Properties.
+        public override void SyncChanges()
+        {
+
+            EnsureChildControls();
+
+            BoardOfDirectors BoardOfDirectorswebPart = this.WebPartToEdit as BoardOfDirectors;
+
+            if (BoardOfDirectorswebPart != null)
+            {
+                Uri uri = new Uri(BoardOfDirectorswebPart.ParamSiteUrl);
+                string serverRelativeUrl = uri.AbsolutePath;
+                ddlAllSites1.SelectedValue = serverRelativeUrl;
+                InitializeListDropdown(ddlSiteLists1, ddlAllSites1);
+                ddlSiteLists1.SelectedValue = BoardOfDirectorswebPart.ParamListPath;
+            }
+            return;
+
+        }
+
+
+
+    }
+}
